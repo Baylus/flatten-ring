@@ -280,3 +280,162 @@ Capture Game State: Capture relevant game state information during each frame of
 Serialize and Store: Serialize the game states into a JSON file or database.
 Replay on Website: Use a JavaScript library to load and render the game states on your website for playback.
 This approach allows you to store, serialize, and play back your game iterations effectively.
+
+
+## Connecting NEAT to game
+
+To integrate NEAT (NeuroEvolution of Augmenting Topologies) with your game, you will need to design the AI such that it controls the characters based on the neural network outputs, rather than simulating key presses. Here’s a step-by-step guide on how you can achieve this:
+
+Steps to Integrate NEAT with the Game
+Define Inputs and Outputs:
+
+Inputs: Decide what information your AI needs to make decisions. This could include the positions of characters, health status, distances to enemies, etc.
+Outputs: Define the actions your AI can take. For a fighting game, these might include moving left, right, jumping, attacking, blocking, etc.
+Setup NEAT:
+
+Use the NEAT-Python library to create and evolve neural networks.
+Configure the NEAT parameters, such as population size, mutation rates, and fitness function.
+Integrate NEAT with the Game Loop:
+
+During each game update, pass the current game state to the AI and get the AI's actions from the neural network outputs.
+Apply these actions directly to the game characters.
+Example Implementation
+1. Define Inputs and Outputs
+For example, your inputs might be:
+
+Distance to the opponent (x, y)
+Health of the player
+Health of the opponent
+Your outputs might be:
+
+Move left
+Move right
+Jump
+Attack
+2. Setup NEAT
+neat_config.txt:
+
+plaintext
+Copy code
+```
+[NEAT]
+pop_size       = 50
+fitness_criterion = max
+fitness_threshold = 1000
+max_generations = 300
+...
+
+[DefaultGenome]
+num_inputs = 3
+num_outputs = 4
+...
+```
+
+```
+import neat
+import pygame
+import json
+
+# Initialize Pygame
+pygame.init()
+
+# Set up the display
+screen = pygame.display.set_mode((800, 600))
+pygame.display.set_caption("2D Game")
+
+# Load NEAT configuration
+config_path = "neat_config.txt"
+config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                            neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                            config_path)
+
+# Create the population
+population = neat.Population(config)
+
+# Define the fitness function
+def eval_genomes(genomes, config):
+    for genome_id, genome in genomes:
+        net = neat.nn.FeedForwardNetwork.create(genome, config)
+        fitness = run_simulation(net)  # Run the game simulation and get the fitness
+        genome.fitness = fitness
+
+# Define the simulation
+def run_simulation(net):
+    game_states = []
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        # Get game state inputs
+        inputs = get_game_state_inputs()
+        
+        # Get outputs from the neural network
+        outputs = net.activate(inputs)
+        
+        # Apply actions based on outputs
+        apply_actions(outputs)
+
+        # Save game state for replay (optional)
+        game_state = get_current_game_state()
+        game_states.append(game_state)
+
+        # Game logic and drawing code here
+        screen.fill((0, 0, 0))  # Clear the screen with black
+        pygame.display.flip()
+
+        # Check for end of simulation condition
+        if end_of_simulation():
+            running = False
+    
+    # Calculate fitness (example: based on health or damage dealt)
+    fitness = calculate_fitness()
+    
+    # Save game states to a file (optional)
+    with open('game_states.json', 'w') as f:
+        json.dump(game_states, f)
+    
+    return fitness
+
+# Define function to get game state inputs
+def get_game_state_inputs():
+    # Example: distance to opponent, health of player, health of opponent
+    return [distance_to_opponent, player_health, opponent_health]
+
+# Define function to apply actions based on neural network outputs
+def apply_actions(outputs):
+    move_left, move_right, jump, attack = outputs
+    if move_left > 0.5:
+        # Move character left
+    if move_right > 0.5:
+        # Move character right
+    if jump > 0.5:
+        # Make character jump
+    if attack > 0.5:
+        # Make character attack
+
+# Define function to get current game state (for replay)
+def get_current_game_state():
+    return {
+        "characters": [
+            {"x": player_x, "y": player_y, "health": player_health},
+            {"x": opponent_x, "y": opponent_y, "health": opponent_health}
+        ]
+    }
+
+# Define function to check for end of simulation
+def end_of_simulation():
+    # Example condition: one character is dead
+    return player_health <= 0 or opponent_health <= 0
+
+# Define function to calculate fitness
+def calculate_fitness():
+    # Example: fitness based on remaining health
+    return player_health - opponent_health
+
+# Run NEAT
+winner = population.run(eval_genomes, n=50)
+
+pygame.quit()
+```

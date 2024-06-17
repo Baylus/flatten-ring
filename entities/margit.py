@@ -1,6 +1,6 @@
 from .base import Entity
 
-class Tarnished(Entity):
+class Margit(Entity):
     """_summary_
 
     Args:
@@ -9,15 +9,23 @@ class Tarnished(Entity):
     Actions, in order of priority:
         Attack (Will supercede all actions following this)
         Move in cardinal directions
-        Dodge (Will supercede all actions following this)
+        Retreat (Will supercede all actions following this, except for daggers)
         Turn
+
+    Attacks:
+        Sky jump
+        Slash
+        Reverse Slash
+        Whirlwind
+        Daggers
+            Two daggers shot towards player
     """
 
     def __init__(self):
-        self.name = "Tarnished"
+        self.name = "Margit"
 
-        self.health = 3
-        self.max_health = 3
+        self.health = 3000
+        self.max_health = 3000
         
 
         self.x = 600
