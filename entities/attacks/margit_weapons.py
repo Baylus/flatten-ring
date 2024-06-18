@@ -11,13 +11,6 @@ class Slash(Weapon):
     """
     def __init__(self, owner, target, image_url = "assets/margit_weapon.png", reversed = False, attack_duration = 10):
         super().__init__(owner, target, image_url, reversed=reversed, attack_duration=attack_duration)
-        self.owner = owner
-        self.angle = 0
-        self.swinging = False
-        self.image = pygame.image.load(image_url)  # Load your weapon image
-        self.rect = self.image.get_rect()
-        self.target = target
-        self.damage = 5
 
 class Dagger(Weapon):
     def __init__(self, x, y, angle, speed, damage = 5, duration = 10):

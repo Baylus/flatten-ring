@@ -105,7 +105,7 @@ class Margit(Entity):
                         self.slash.start_attack()
                     elif self.current_action == Actions.MREVSLASH:
                         # Doing regular slash attack
-                        self.slash.start_attack()
+                        self.rev_slash.start_attack()
                     elif self.current_action == Actions.MDAGGERS:
                         # We actually are going to be creating the daggers here, as opposed to "starting" them
                         dspeed = self.weapon_details[Actions.MDAGGERS]["speed"]
