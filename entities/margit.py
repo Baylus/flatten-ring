@@ -55,6 +55,7 @@ class Margit(Entity):
             },
             Actions.MDAGGERS: {
                 "damage": 3,
+                "speed": 50,
                 "lead_time": 2,
                 "attack_time": 5
             }
@@ -101,6 +102,7 @@ class Margit(Entity):
                 self.time_in_action -= 1
                 self.lead_time_before_action -= 1
                 if self.lead_time_before_action == 0:
+                    print("We are done with lead time for margit attack")
                     # We have to start the attacks
                     if self.current_action == Actions.MSLASH:
                         # Doing regular slash attack
@@ -110,9 +112,10 @@ class Margit(Entity):
                         self.rev_slash.start_attack()
                     elif self.current_action == Actions.MDAGGERS:
                         # We actually are going to be creating the daggers here, as opposed to "starting" them
+                        print("We are creating a dagger now")
                         dspeed = self.weapon_details[Actions.MDAGGERS]["speed"]
                         ddmg = self.weapon_details[Actions.MDAGGERS]["damage"]
-                        self.daggers.append(Dagger(self.x, self.y, self.angle, dspeed, ddmg))
+                        self.daggers.append(Dagger(self, self.target, self.x, self.y, self.angle, dspeed, ddmg))
                 return
             
             if not actions:
@@ -139,7 +142,10 @@ class Margit(Entity):
                     self.slash.damage = self.weapon_details[Actions.MREVSLASH]["damage"]
                     self.lead_time_before_action = self.weapon_details[Actions.MREVSLASH]["lead_time"]
                 elif Actions.MDAGGERS in moves:
-                    pass
+                    print("Designating creating daggers later")
+                    self.current_action = Actions.MDAGGERS
+                    self.time_in_action = self.weapon_details[Actions.MDAGGERS]["attack_time"]
+                    self.lead_time_before_action = self.weapon_details[Actions.MDAGGERS]["lead_time"]
                 
                 return
 
@@ -189,7 +195,7 @@ class Margit(Entity):
                 self.rev_slash.draw(surface)
         
         for x in self.daggers:
-            x.draw()
+            x.draw(surface)
         
         
         draw_health_bar(

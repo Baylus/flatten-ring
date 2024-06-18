@@ -22,15 +22,17 @@ class Slash(Weapon):
             raise TarnishedDied("Tarnished Died by slash.")
 
 class Dagger(Weapon):
-    def __init__(self, x, y, angle, speed, damage = 5, duration = 10):
+    def __init__(self, owner, target, x, y, angle, speed, damage = 5, duration = 10):
+        self.owner = owner
+        self.target = target
         self.x = x
         self.y = y
         self.angle = angle
         self.speed = speed
         self.time_left = duration
-        self.distance_travelled = 0
+        self.damage = damage
         self.swinging = True # Used to check for collisions. Anytime a dagger exists, it must be active
-        self.image = pygame.image.load("assets/yellow_dagger.png")
+        self.image = pygame.image.load("assets/margit_dagger.png")
         self.rect = self.image.get_rect(center=(x, y))
 
     def update(self):

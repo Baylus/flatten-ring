@@ -145,7 +145,7 @@ def get_actions(inputs) -> list[int]:
         actions.append(Actions.MSLASH)
     if inputs[pygame.K_2]: # Reverse attack
         actions.append(Actions.MREVSLASH)
-    if inputs[pygame.K_PLUS]: # Daggers
+    if inputs[pygame.K_3]: # Daggers
         actions.append(Actions.MDAGGERS)
 
     return actions
