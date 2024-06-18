@@ -3,6 +3,7 @@ import pygame
 from settings import TPS, WIDTH, HEIGHT, MARGIT_IMAGE
 from .base import Entity
 from .actions import Actions
+from .attacks.margit_weapons import Slash
 
 class Margit(Entity):
     """_summary_
@@ -30,6 +31,7 @@ class Margit(Entity):
 
         self.health = 3000
         self.max_health = 3000
+        self.target = None
 
         self.x = 1200
         self.y = 600
@@ -37,6 +39,33 @@ class Margit(Entity):
 
         self.width = 100
         self.height = 100
+
+        self.weapon_details = {
+            Actions.MSLASH: {
+                "object": None,
+                "damage": 8,
+                "lead_time": 7,
+                "attack_time": 15
+            },
+            Actions.MREVSLASH: {
+                "object": None,
+                "damage": 5,
+                "lead_time": 5,
+                "attack_time": 12
+            },
+            Actions.MDAGGERS: {
+                "object": None,
+                "damage": 3,
+                "lead_time": 2,
+                "attack_time": 5
+            }
+        }
+
+        self.slash: Slash = None
+        self.rev_slash = None
+        self.bullets = []
+        
+        self.lead_time_before_action: int = 0
 
     def do_actions(self, actions):
         """Handle all actions provided
@@ -99,10 +128,11 @@ class Margit(Entity):
         # self.weapon.draw(surface)
     
     
-    # def give_target(self, target):
-    #     """Determines target which instantiates the weapon.
+    def give_target(self, target):
+        """Determines target which instantiates the weapon.
 
-    #     Args:
-    #         target (Entity): Target to damage
-    #     """
-    #     self.weapon = Weapon(target)
+        Args:
+            target (Entity): Target to damage
+        """
+        self.target = target
+        self.slash = Slash(self, target)

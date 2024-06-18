@@ -7,7 +7,7 @@ from settings import TPS, WIDTH, HEIGHT, TARNISHED_IMAGE
 from .base import Entity
 from .actions import Actions
 from .exceptions import TarnishedDied
-from .weapon import Weapon
+from .attacks.weapon import Weapon
 
 class Tarnished(Entity):
     """_summary_
@@ -27,8 +27,8 @@ class Tarnished(Entity):
     def __init__(self):
         self.name = "Tarnished"
 
-        self.health = 3
-        self.max_health = 3
+        self.health = 100
+        self.max_health = 100
 
         self.x = 600
         self.y = 600
@@ -108,11 +108,11 @@ class Tarnished(Entity):
             moves = [x for x in actions if x in moves]
             if len(moves) == 1:
                 # We have to turn
-                print(f"We have to turn: {moves[0]}")
                 if moves[0] == Actions.PTURNL:
                     self.angle -= self.turn_speed
                 else:
                     self.angle += self.turn_speed
+                print(f"We have to turn: {moves[0]}, new angle is {self.angle}")
         finally:
             # No matter what, we are ensuring that we did not move into walls
             collide_walls()

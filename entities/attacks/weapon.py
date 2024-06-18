@@ -2,7 +2,17 @@ import pygame
 import math
 
 class Weapon:
-    def __init__(self, owner, target, image_url = "assets/tarnished_right_slash.png", reversed = False):
+    def __init__(self, owner, target, image_url = "assets/tarnished_right_slash.png", reversed = False, cone_angle = 90, attack_duration = 10):
+        """_summary_
+
+        Args:
+            owner (_type_): _description_
+            target (_type_): _description_
+            image_url (str, optional): _description_. Defaults to "assets/tarnished_right_slash.png".
+            reversed (bool, optional): _description_. Defaults to False.
+            cone_angle (int, optional): How wide of a cone the strike will be. Defaults to 90.
+        # TODO: Finish annotating inputs
+        """
         self.owner = owner
         self.angle = 0
         self.swinging = False
@@ -11,23 +21,38 @@ class Weapon:
         self.target = target
         self.damage = 5
 
+        self.reversed = reversed # Is swing coming from left?
+        if not self.reversed:
+            self.start_angle_offset = cone_angle
+            self.end_angle_offset = -cone_angle
+        else: # Swing from left
+            self.start_angle_offset = -cone_angle
+            self.end_angle_offset = cone_angle
+        
+        self.angle_speed = cone_angle * 2 / attack_duration
+        if not reversed:
+            # Since its not reversed, we are actually subtracting the angle
+            self.angle_speed = -self.angle_speed
+    
     def start_attack(self):
         self.swinging = True
-        self.angle = -90  # Reset angle at the start of the attack
+        self.angle = self.start_angle_offset  # Reset angle at the start of the attack
 
     def update(self):
         if self.swinging:
             self.check_collisions()
-            self.angle += 15  # Adjust the angle increment as needed
-            if self.angle >= 100:
+            self.angle += self.angle_speed  # Adjust the angle increment as needed
+            if self.reversed and self.angle >= self.end_angle_offset:
                 self.swinging = False
-                # self.angle = 0
+            elif self.angle <= self.end_angle_offset:
+                self.swinging = False
+
 
     def draw(self, surface):
         if self.swinging:
             # Calculate the rotation angle based on the owner's angle and weapon's swing angle
             total_angle = self.owner.angle + self.angle
-            rotated_image = pygame.transform.rotate(self.image, -total_angle)
+            rotated_image = pygame.transform.rotate(self.image, total_angle)
             
             # Calculate the offset for the weapon's position
             offset_distance = 60  # Distance from the player's center to the weapon, adjust as needed

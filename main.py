@@ -17,8 +17,6 @@ pygame.display.set_caption("Flatten Ring")
 
 BG = pygame.image.load("assets/stage.png")
 
-# Load entity images
-
 tarnished = Tarnished()
 margit = Margit()
 
@@ -45,6 +43,7 @@ def draw_entity(entity: Entity, image):
 def main():
     # Initial housekeeping
     tarnished.give_target(margit)
+    margit.give_target(tarnished)
 
     clock = pygame.time.Clock()
 
@@ -64,9 +63,6 @@ def main():
         margit.update()
         tarnished.update()
 
-        # check_collisions(tarnished.weapon, margit)
-
-        # Garbage drawing of rectangles
         draw()
 
     pygame.quit()
