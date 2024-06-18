@@ -1,3 +1,6 @@
+import pygame
+
+from settings import TPS, HEIGHT, MARGIT_IMAGE
 from .base import Entity
 from .actions import Actions
 
@@ -65,3 +68,9 @@ class Margit(Entity):
                 self.angle -= self.turn_speed
             else:
                 self.angle += self.turn_speed
+    
+    def draw(self, surface):
+        rotated_image = pygame.transform.rotate(MARGIT_IMAGE, -self.angle)
+        new_rect = rotated_image.get_rect(center=(self.x, self.y))
+        surface.blit(rotated_image, new_rect.topleft)
+        # self.weapon.draw(surface)

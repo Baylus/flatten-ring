@@ -6,7 +6,7 @@ from entities.margit import Margit
 from entities.base import Entity
 from entities.actions import Actions
 
-from settings import WIDTH, HEIGHT, TPS
+from settings import WIDTH, HEIGHT, TPS, MARGIT_IMAGE, TARNISHED_IMAGE
 
 # Initialize Pygame
 pygame.init()
@@ -18,8 +18,6 @@ pygame.display.set_caption("Flatten Ring")
 BG = pygame.image.load("assets/stage.png")
 
 # Load entity images
-TARNISHED_IMAGE = pygame.image.load("assets/tarnished.png")
-MARGIT_IMAGE = pygame.image.load("assets/margit.png")
 
 tarnished = Tarnished()
 margit = Margit()
@@ -29,8 +27,10 @@ entities = [tarnished, margit]
 def draw():
     WIN.blit(BG, (0,0))
 
-    draw_entity(tarnished, TARNISHED_IMAGE)
-    draw_entity(margit, MARGIT_IMAGE)
+    # draw_entity(tarnished, TARNISHED_IMAGE)
+    tarnished.draw(WIN)
+    # draw_entity(margit, MARGIT_IMAGE)
+    margit.draw(WIN)
 
     pygame.display.update()
 

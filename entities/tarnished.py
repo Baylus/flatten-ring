@@ -1,10 +1,12 @@
 import pygame
 
+from utilities import calculate_new_xy
+from settings import TPS, HEIGHT, TARNISHED_IMAGE
+
 from .base import Entity
 from .actions import Actions
-from utilities import calculate_new_xy
 from .exceptions import TarnishedDied
-from settings import TPS, HEIGHT
+from .weapon import Weapon
 
 class Tarnished(Entity):
     """_summary_
@@ -18,7 +20,6 @@ class Tarnished(Entity):
         Dodge (Will supercede all actions following this)
         Turn
     """
-    # dodgespeed: int = 10
     turn_speed = 7
 
     def __init__(self):
@@ -29,13 +30,14 @@ class Tarnished(Entity):
 
         self.x = 600
         self.y = 600
-        self.angle = 0 # TRYING TO ADJUST THIS LINE
+        self.angle = 0
 
         self.width = 100
         self.height = 100
         
         self.default_rect_color = "green"
         self.pygame_obj = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.weapon = Weapon(self)
 
     def do_actions(self, actions):
         """Handle all actions provided
@@ -62,6 +64,13 @@ class Tarnished(Entity):
         if not actions:
             return
         
+        # Try to attack
+        if Actions.PATTACK in actions:
+            # Start a swing
+            self.current_action = Actions.PATTACK
+            self.time_in_action = 10
+            return
+
         moves = [Actions.PFORWARD, Actions.PBACK, Actions.PLEFT, Actions.PRIGHT]
         moves = [x for x in actions if x in moves]
         move_ang = self.angle
@@ -90,7 +99,11 @@ class Tarnished(Entity):
             else:
                 self.angle += self.turn_speed
 
-    def dodge(self):
-        """Commence dodge
-        """
-        # Find out angle at which we are dodging
+    def update(self):
+        self.weapon.update()
+
+    def draw(self, surface):
+        rotated_image = pygame.transform.rotate(TARNISHED_IMAGE, -self.angle)
+        new_rect = rotated_image.get_rect(center=(self.x, self.y))
+        surface.blit(rotated_image, new_rect.topleft)
+        self.weapon.draw(surface)
