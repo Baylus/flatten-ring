@@ -180,10 +180,11 @@ class Margit(Entity):
         rotated_image = pygame.transform.rotate(MARGIT_IMAGE, -self.angle)
         new_rect = rotated_image.get_rect(center=(self.x, self.y))
         surface.blit(rotated_image, new_rect.topleft)
-        if Actions.MSLASH == self.current_action:
-            self.slash.draw(surface)
-        elif Actions.MREVSLASH == self.current_action:
-            self.rev_slash.draw(surface)
+        if self.current_action and self.lead_time_before_action < 1:
+            if Actions.MSLASH == self.current_action:
+                self.slash.draw(surface)
+            elif Actions.MREVSLASH == self.current_action:
+                self.rev_slash.draw(surface)
         
         for x in self.daggers:
             x.draw()

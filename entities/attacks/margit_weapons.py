@@ -12,6 +12,8 @@ class Slash(Weapon):
     def __init__(self, owner, target, image_url = "assets/margit_weapon.png", reversed = False, attack_duration = 10):
         super().__init__(owner, target, image_url, reversed=reversed, attack_duration=attack_duration)
 
+        self.weapon_distance = 120
+
 class Dagger(Weapon):
     def __init__(self, x, y, angle, speed, damage = 5, duration = 10):
         self.x = x

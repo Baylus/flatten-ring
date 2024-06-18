@@ -21,6 +21,8 @@ class Weapon:
         self.target = target
         self.damage = 5
 
+        self.weapon_distance = 60
+
         # NOTE: All the math that goes behind this reversed variable seems to be backwards to me.
         # However, whenever I try to adjust it to fit what I think is happening, it either doesnt
         # swing, or starts spinning the wrong way, so I am leaving it as is.
@@ -61,7 +63,7 @@ class Weapon:
             rotated_image = pygame.transform.rotate(self.image, total_angle)
             
             # Calculate the offset for the weapon's position
-            offset_distance = 60  # Distance from the player's center to the weapon, adjust as needed
+            offset_distance = self.weapon_distance  # Distance from the player's center to the weapon, adjust as needed
             offset_x = math.cos(math.radians(total_angle)) * offset_distance
             offset_y = -math.sin(math.radians(total_angle)) * offset_distance
             
@@ -76,6 +78,7 @@ class Weapon:
         return self.rect
     
     def check_collisions(self):
+        # TODO: Update this to make margit's collision box smaller. Its too fat right now.
         if self.swinging and self.get_hitbox().colliderect(pygame.Rect(self.target.x, self.target.y, self.target.width, self.target.height)):
             self.target.health -= self.damage
             print(f"{self.target.name} hit! Health: {self.target.health}")
