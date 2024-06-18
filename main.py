@@ -167,10 +167,6 @@ def apply_actions(actions):
     # Do Margit Actions
     margit.do_actions(actions)
 
-def check_collisions(weapon, target):
-    if weapon.swinging and weapon.get_hitbox().colliderect(pygame.Rect(target.x, target.y, target.width, target.height)):
-        target.health -= 1
-        print(f"{target.name} hit! Health: {target.health}")
 
 
 if __name__ == "__main__":
