@@ -8,3 +8,4 @@ Tarnished dodges out of the way, increasing speed briefly and slowing down while
 Provides Iframes for most of the dodge, except for a little bit at the end of the movement.
 
 I will be using a linear decay to the speed, despite it not making as much kinetic sense as a logarithmic curve.
+Actually, I am not even going to be decaying it, so it will really be difficult to see, but I just need this thing working.

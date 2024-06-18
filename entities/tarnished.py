@@ -2,6 +2,8 @@ import pygame
 
 from .base import Entity
 from .actions import Actions
+from utilities import calculate_new_xy
+from settings import TPS
 
 class Tarnished(Entity):
     """_summary_
@@ -15,6 +17,8 @@ class Tarnished(Entity):
         Dodge (Will supercede all actions following this)
         Turn
     """
+    # dodgespeed: int = 10
+    turn_speed = 7
 
     def __init__(self):
         self.name = "Tarnished"
@@ -41,7 +45,12 @@ class Tarnished(Entity):
         # TODO: Check if dodging, as we will need to keep moving during that
         if self.busy():
             # Tarnished is currently busy, and cannot act.
+            if self.current_action == Actions.PDODGE:
+                new_pos = calculate_new_xy((self.x, self.y), self.velocity * 1.5, self.angle)
+                self.x, self.y = new_pos
+
             self.time_in_action -= 1
+            return
         
         if not actions:
             return
@@ -54,11 +63,15 @@ class Tarnished(Entity):
             print("We have to move, heres our actions: ")
             print(moves)
             move_ang = self.move(moves)
-        # Now is the appropriate time to dodge, because we have the new angle at which we are
-        # going.
+        
+        # Now is the appropriate time to dodge, almost entirely because we have 
+        # the new movement angle we need to determine our trajectory. 
         if Actions.PDODGE in actions:
             # We are dodging
-            pass
+            self.current_action = Actions.PDODGE
+            self.time_in_action = 30
+            self.angle = move_ang
+            return # Can't do any other actions now.
 
         moves = [Actions.PTURNL, Actions.PTURNR]
         moves = [x for x in actions if x in moves]

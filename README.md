@@ -16,6 +16,7 @@ NOTE: I actually have only played like an hour of DS3, but a good amount of elde
  - Margit's current action
  - Time remaining in Margit action
 ###### Maybe:
+ - Angle of Margit
  - Health of Tarnished
  - Health of Margit
 
@@ -41,6 +42,7 @@ NOTE: I actually have only played like an hour of DS3, but a good amount of elde
  - Tarnished's current action
  - Time remaining in Tarnished action
 ###### Maybe:
+ - Angle of Tarnished (This may be broken due to dodge essentially placing you into an attack)
  - Health of Tarnished
  - Health of Margit
 
