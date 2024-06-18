@@ -2,8 +2,11 @@
 class GameOver(Exception):
     pass
 
-class TarnishedDied(GameOver):
+class CharacterDied(GameOver):
     pass
 
-class MargitDied(GameOver):
+class TarnishedDied(CharacterDied):
+    pass
+
+class MargitDied(CharacterDied):
     pass

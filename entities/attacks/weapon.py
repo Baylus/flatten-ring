@@ -1,6 +1,8 @@
 import pygame
 import math
 
+from ..base import Entity
+
 class Weapon:
     def __init__(self, owner, target, image_url = "assets/tarnished_right_slash.png", reversed = False, cone_angle = 90, attack_duration = 10):
         """_summary_
@@ -18,7 +20,7 @@ class Weapon:
         self.swinging = False
         self.image = pygame.image.load(image_url)  # Load your weapon image
         self.rect = self.image.get_rect()
-        self.target = target
+        self.target: Entity = target
         self.damage = 5
 
         self.weapon_distance = 60
@@ -79,6 +81,7 @@ class Weapon:
     def check_collisions(self):
         # TODO: Update this to make margit's collision box smaller. Its too fat right now.
         if self.swinging and self.get_hitbox().colliderect(pygame.Rect(self.target.x, self.target.y, self.target.width, self.target.height)):
-            self.target.health -= self.damage
-            print(f"{self.target.name} hit! Health: {self.target.health}")
-            self.damage = 0 # To prevent the enemy from taking damage twice from the same swing/ability
+            dmgtaken = self.target.take_damage(self.damage)
+            if dmgtaken:
+                print(f"{self.target.name} hit for {dmgtaken}! Health: {self.target.health}")
+                self.damage = 0 # To prevent the enemy from taking damage twice from the same swing/ability

@@ -24,6 +24,17 @@ class Tarnished(Entity):
     turn_speed = 7
     weapon_damage = 5
 
+    action_details = {
+        Actions.PDODGE: {
+            "time_in_action": 25,
+            "iframes": 25  # Want to have some time to punish a risky dodge
+        },
+        Actions.PATTACK: {
+            "damage": 5,
+            "time_in_action": 10
+        }
+    }
+
     def __init__(self):
         self.name = "Tarnished"
 
@@ -70,7 +81,7 @@ class Tarnished(Entity):
             if self.y > HEIGHT - 150 or self.y < 150:
                 # We have fallen into pit
                 self.health = 0
-                raise TarnishedDied("Fell into pit")
+                raise TarnishedDied("Tarnished died from falling")
 
             if not actions:
                 return
@@ -79,10 +90,11 @@ class Tarnished(Entity):
             if Actions.PATTACK in actions:
                 # Start a swing
                 self.current_action = Actions.PATTACK
-                self.time_in_action = 10
+                actdetails = self.action_details[Actions.PATTACK]
+                self.time_in_action = actdetails["time_in_action"]
                 # NOTE: We have to set the damage back, because we will be using the current damage on the weapon
                 # to disable the weapon from damaging the character again.
-                self.weapon.damage = self.weapon_damage
+                self.weapon.damage = actdetails["damage"]
                 self.weapon.start_attack()
                 return
 
@@ -100,7 +112,9 @@ class Tarnished(Entity):
             if Actions.PDODGE in actions:
                 # We are dodging
                 self.current_action = Actions.PDODGE
-                self.time_in_action = 30
+                actdetails = self.action_details[Actions.PDODGE]
+                self.time_in_action = actdetails["time_in_action"]
+                self.iframes = actdetails["iframes"]
                 self.angle = move_ang
                 return # Can't do any other actions now.
 
@@ -118,6 +132,7 @@ class Tarnished(Entity):
             collide_walls()
 
     def update(self):
+        self.iframes -= 1 # Take away an iframe in case we have one
         self.weapon.update()
 
     def draw(self, surface):

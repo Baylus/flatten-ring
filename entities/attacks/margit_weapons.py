@@ -2,6 +2,7 @@ import pygame
 import math
 
 from utilities import calculate_new_xy
+from ..exceptions import CharacterDied, TarnishedDied
 
 from .weapon import Weapon
 
@@ -13,6 +14,12 @@ class Slash(Weapon):
         super().__init__(owner, target, image_url, reversed=reversed, attack_duration=attack_duration)
 
         self.weapon_distance = 120
+    
+    def check_collisions(self):
+        try:
+            super().check_collisions()
+        except CharacterDied:
+            raise TarnishedDied("Tarnished Died by slash.")
 
 class Dagger(Weapon):
     def __init__(self, x, y, angle, speed, damage = 5, duration = 10):
@@ -38,3 +45,9 @@ class Dagger(Weapon):
     def draw(self, surface):
         rotated_image = pygame.transform.rotate(self.image, -self.angle)
         surface.blit(rotated_image, self.rect.topleft)
+
+    def check_collisions(self):
+        try:
+            super().check_collisions()
+        except CharacterDied:
+            raise TarnishedDied("Tarnished Died by Daggers.")

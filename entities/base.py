@@ -1,7 +1,9 @@
 import pygame
 
-from .actions import Actions
 from utilities import calculate_new_xy
+
+from .exceptions import CharacterDied
+from .actions import Actions
 
 class Entity():
     name: str
@@ -96,5 +98,23 @@ class Entity():
     def dodge(self):
         raise NotImplementedError
 
-    def take_damage(self):
-        raise NotImplementedError
+    def take_damage(self, damage: int) -> int:
+        """Forces character to take specified amount of damage
+
+        Args:
+            damage (int): Number of damage to take
+
+        Raises:
+            CharacterDied: Characters health reached 0 or less
+
+        Returns:
+            int: Number of damage taken
+        """
+        if self.iframes > 0:
+            print("Entity would have been hit, but currently has invincibility frames")
+        else:
+            self.health -= damage
+            if self.health < 1:
+                raise CharacterDied
+            return damage
+        return 0
