@@ -143,7 +143,7 @@ class Tarnished(Entity):
 
         draw_health_bar(
             surface, 
-            HEALTH_BAR_WIDTHS + DEFAULT_HEALTH_BAR_PADDING, 
+            DEFAULT_HEALTH_BAR_PADDING, 
             HEALTH_BAR_HEIGHTS + DEFAULT_HEALTH_BAR_PADDING, 
             HEALTH_BAR_WIDTHS, 
             HEALTH_BAR_HEIGHTS, 
