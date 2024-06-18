@@ -21,8 +21,11 @@ class Weapon:
         self.target = target
         self.damage = 5
 
+        # NOTE: All the math that goes behind this reversed variable seems to be backwards to me.
+        # However, whenever I try to adjust it to fit what I think is happening, it either doesnt
+        # swing, or starts spinning the wrong way, so I am leaving it as is.
         self.reversed = reversed # Is swing coming from left?
-        if not self.reversed:
+        if self.reversed:
             self.start_angle_offset = cone_angle
             self.end_angle_offset = -cone_angle
         else: # Swing from left
@@ -30,7 +33,7 @@ class Weapon:
             self.end_angle_offset = cone_angle
         
         self.angle_speed = cone_angle * 2 / attack_duration
-        if not reversed:
+        if self.reversed:
             # Since its not reversed, we are actually subtracting the angle
             self.angle_speed = -self.angle_speed
     
@@ -42,9 +45,11 @@ class Weapon:
         if self.swinging:
             self.check_collisions()
             self.angle += self.angle_speed  # Adjust the angle increment as needed
-            if self.reversed and self.angle >= self.end_angle_offset:
+            if not self.reversed and self.angle >= self.end_angle_offset:
+                print(f"We have ended our swing. current angle {self.angle}, end angle {self.end_angle_offset}")
                 self.swinging = False
-            elif self.angle <= self.end_angle_offset:
+            elif self.reversed and self.angle <= self.end_angle_offset:
+                print(f"We have ended our reversed swing. current angle {self.angle}, end angle {self.end_angle_offset}")
                 self.swinging = False
 
 
@@ -52,6 +57,7 @@ class Weapon:
         if self.swinging:
             # Calculate the rotation angle based on the owner's angle and weapon's swing angle
             total_angle = self.owner.angle + self.angle
+            print(f"Calculating weapon angle: {total_angle} = {self.owner.angle} + {self.angle}")
             rotated_image = pygame.transform.rotate(self.image, total_angle)
             
             # Calculate the offset for the weapon's position
