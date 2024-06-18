@@ -3,7 +3,8 @@ import pygame
 from .base import Entity
 from .actions import Actions
 from utilities import calculate_new_xy
-from settings import TPS
+from .exceptions import TarnishedDied
+from settings import TPS, HEIGHT
 
 class Tarnished(Entity):
     """_summary_
@@ -42,7 +43,7 @@ class Tarnished(Entity):
         Args:
             actions (_type_): _description_
         """
-        # TODO: Check if dodging, as we will need to keep moving during that
+        
         if self.busy():
             # Tarnished is currently busy, and cannot act.
             if self.current_action == Actions.PDODGE:
@@ -52,6 +53,12 @@ class Tarnished(Entity):
             self.time_in_action -= 1
             return
         
+        # Trigger death if we have fell into ravine.
+        if self.y > HEIGHT - 150 or self.y < 150:
+            # We have fallen into pit
+            self.health = 0
+            raise TarnishedDied("Fell into pit")
+
         if not actions:
             return
         
