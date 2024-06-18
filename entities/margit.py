@@ -1,6 +1,8 @@
 import pygame
 
-from settings import TPS, WIDTH, HEIGHT, MARGIT_IMAGE
+from settings import TPS, WIDTH, HEIGHT, MARGIT_IMAGE, HEALTH_BAR_HEIGHTS, HEALTH_BAR_WIDTHS, DEFAULT_HEALTH_BAR_PADDING
+from utilities import calculate_new_xy, draw_health_bar
+
 from .base import Entity
 from .actions import Actions
 from .attacks.margit_weapons import Slash, Dagger
@@ -188,6 +190,17 @@ class Margit(Entity):
         
         for x in self.daggers:
             x.draw()
+        
+        
+        draw_health_bar(
+            surface,
+            WIDTH - HEALTH_BAR_WIDTHS - DEFAULT_HEALTH_BAR_PADDING,
+            HEALTH_BAR_HEIGHTS + DEFAULT_HEALTH_BAR_PADDING,
+            HEALTH_BAR_WIDTHS,
+            HEALTH_BAR_HEIGHTS,
+            self.health,
+            self.max_health,
+            self.name)
         
     
     

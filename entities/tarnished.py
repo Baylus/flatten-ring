@@ -1,7 +1,7 @@
 import pygame
 
-from utilities import calculate_new_xy
-from settings import TPS, WIDTH, HEIGHT, TARNISHED_IMAGE
+from utilities import calculate_new_xy, draw_health_bar
+from settings import TPS, WIDTH, HEIGHT, TARNISHED_IMAGE, HEALTH_BAR_WIDTHS, HEALTH_BAR_HEIGHTS, DEFAULT_HEALTH_BAR_PADDING
 # from main import margit
 
 from .base import Entity
@@ -125,6 +125,16 @@ class Tarnished(Entity):
         new_rect = rotated_image.get_rect(center=(self.x, self.y))
         surface.blit(rotated_image, new_rect.topleft)
         self.weapon.draw(surface)
+
+        draw_health_bar(
+            surface, 
+            HEALTH_BAR_WIDTHS + DEFAULT_HEALTH_BAR_PADDING, 
+            HEALTH_BAR_HEIGHTS + DEFAULT_HEALTH_BAR_PADDING, 
+            HEALTH_BAR_WIDTHS, 
+            HEALTH_BAR_HEIGHTS, 
+            self.health, 
+            self.max_health, 
+            self.name)
     
     def give_target(self, target):
         """Determines target which instantiates the weapon.
