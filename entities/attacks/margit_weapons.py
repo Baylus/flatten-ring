@@ -1,13 +1,16 @@
 import pygame
 import math
 
+from utilities import calculate_new_xy
+
 from .weapon import Weapon
 
 class Slash(Weapon):
     """Margits regular slash attack. This will require coordination on the part of Margit
     so that the attack has some telegraphing time before it starts to actually swing.
     """
-    def __init__(self, owner, target, image_url = "assets/margit_weapon.png", reversed = False):
+    def __init__(self, owner, target, image_url = "assets/margit_weapon.png", reversed = False, attack_duration = 10):
+        super().__init__(owner, target, image_url, reversed=reversed, attack_duration=attack_duration)
         self.owner = owner
         self.angle = 0
         self.swinging = False
@@ -16,38 +19,27 @@ class Slash(Weapon):
         self.target = target
         self.damage = 5
 
-    # def start_attack(self):
-    #     self.swinging = True
-    #     self.angle = -90  # Reset angle at the start of the attack
+class Dagger(Weapon):
+    def __init__(self, x, y, angle, speed, damage = 5, duration = 10):
+        self.x = x
+        self.y = y
+        self.angle = angle
+        self.speed = speed
+        self.time_left = duration
+        self.distance_travelled = 0
+        self.swinging = True # Used to check for collisions. Anytime a dagger exists, it must be active
+        self.image = pygame.image.load("assets/yellow_dagger.png")
+        self.rect = self.image.get_rect(center=(x, y))
 
     def update(self):
-        if self.swinging:
-            self.check_collisions()
-            self.angle += 15  # Adjust the angle increment as needed
-            if self.angle >= 100:
-                self.swinging = False
-                # self.angle = 0
+        self.time_left -= 1
+        self.x, self.y = calculate_new_xy((self.x, self.y), self.speed, self.angle)
+
+        # Update the rect position
+        self.rect.center = (self.x, self.y)
+
+        self.check_collisions()
 
     def draw(self, surface):
-        if self.swinging:
-            # Calculate the rotation angle based on the owner's angle and weapon's swing angle
-            total_angle = self.owner.angle + self.angle
-            rotated_image = pygame.transform.rotate(self.image, -total_angle)
-            
-            # Calculate the offset for the weapon's position
-            offset_distance = 60  # Distance from the player's center to the weapon, adjust as needed
-            offset_x = math.cos(math.radians(total_angle)) * offset_distance
-            offset_y = -math.sin(math.radians(total_angle)) * offset_distance
-            
-            # Get the new rect for the rotated image
-            new_rect = rotated_image.get_rect(center=(self.owner.x + offset_x, self.owner.y + offset_y))
-            
-            # Draw the rotated image on the screen
-            surface.blit(rotated_image, new_rect.topleft)
-            self.rect = new_rect
-    
-    def check_collisions(self):
-        if self.swinging and self.get_hitbox().colliderect(pygame.Rect(self.target.x, self.target.y, self.target.width, self.target.height)):
-            self.target.health -= self.damage
-            print(f"{self.target.name} hit! Health: {self.target.health}")
-            self.damage = 0
+        rotated_image = pygame.transform.rotate(self.image, -self.angle)
+        surface.blit(rotated_image, self.rect.topleft)

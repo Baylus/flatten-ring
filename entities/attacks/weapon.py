@@ -79,4 +79,4 @@ class Weapon:
         if self.swinging and self.get_hitbox().colliderect(pygame.Rect(self.target.x, self.target.y, self.target.width, self.target.height)):
             self.target.health -= self.damage
             print(f"{self.target.name} hit! Health: {self.target.health}")
-            self.damage = 0
+            self.damage = 0 # To prevent the enemy from taking damage twice from the same swing/ability

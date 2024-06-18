@@ -60,8 +60,8 @@ def main():
         apply_actions(actions)
 
         # Game logic here
-        margit.update()
         tarnished.update()
+        margit.update()
 
         draw()
 
@@ -143,9 +143,9 @@ def get_actions(inputs) -> list[int]:
         actions.append(Actions.MRETREAT)
     if inputs[pygame.K_1]: # Attack
         actions.append(Actions.MSLASH)
-    if inputs[pygame.K_2]: #
+    if inputs[pygame.K_2]: # Reverse attack
         actions.append(Actions.MREVSLASH)
-    if inputs[pygame.K_PLUS]:
+    if inputs[pygame.K_PLUS]: # Daggers
         actions.append(Actions.MDAGGERS)
 
     return actions
