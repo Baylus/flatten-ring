@@ -29,8 +29,9 @@ class Margit(Entity):
         self.max_health = 3000
         
 
-        self.x = 600
+        self.x = 1200
         self.y = 600
+        self.angle = 180
 
         self.width = 100
         self.height = 100

@@ -24,6 +24,7 @@ class Tarnished(Entity):
 
         self.x = 600
         self.y = 600
+        self.angle = 0 # TRYING TO ADJUST THIS LINE
 
         self.width = 100
         self.height = 100

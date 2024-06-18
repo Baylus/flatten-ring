@@ -6,6 +6,9 @@ from entities.margit import Margit
 from entities.base import Entity
 from entities.actions import Actions
 
+# Initialize Pygame
+pygame.init()
+
 WIDTH, HEIGHT = 2000, 1200
 # Set up the display
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -14,27 +17,32 @@ pygame.display.set_caption("Flatten Ring")
 BG = pygame.image.load("assets/stage.png")
 TPS = 60 # Ticks per second, not sure if this matters
 
+# Load entity images
+TARNISHED_IMAGE = pygame.image.load("assets/tarnished.png")
+MARGIT_IMAGE = pygame.image.load("assets/margit.png")
 
 tarnished = Tarnished()
 margit = Margit()
 
 entities = [tarnished, margit]
 
-def draw(drawables: list[Entity]):
+def draw():
     WIN.blit(BG, (0,0))
 
-    # TODO: This cannot possibly be the way to do this...
-    for i in range(len(drawables)):
-        pygame.draw.rect(WIN, entities[i].default_rect_color, drawables[i])
+    draw_entity(tarnished, TARNISHED_IMAGE)
+    draw_entity(margit, MARGIT_IMAGE)
 
     pygame.display.update()
 
-def main():
-    # Initialize Pygame
-    pygame.init()
+def draw_entity(entity: Entity, image):
+    # Rotate the image
+    rotated_image = pygame.transform.rotate(image, -entity.angle)
+    # Get the new rect with the center in the correct position
+    new_rect = rotated_image.get_rect(center=(entity.x, entity.y))
+    # Draw the rotated image on the screen
+    WIN.blit(rotated_image, new_rect.topleft)
 
-    player = pygame.Rect(tarnished.x, tarnished.y, tarnished.width, tarnished.height)
-    enemy = pygame.Rect(margit.x, margit.y, margit.width, margit.height)
+def main():
     clock = pygame.time.Clock()
 
     # Main game loop
@@ -52,7 +60,7 @@ def main():
         # Game logic here
 
         # Garbage drawing of rectangles
-        draw([player, enemy])
+        draw()
 
     pygame.quit()
     sys.exit()
