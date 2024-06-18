@@ -1,6 +1,6 @@
 import pygame
 
-from settings import TPS, HEIGHT, MARGIT_IMAGE
+from settings import TPS, WIDTH, HEIGHT, MARGIT_IMAGE
 from .base import Entity
 from .actions import Actions
 
@@ -44,28 +44,50 @@ class Margit(Entity):
         Args:
             actions (_type_): _description_
         """
-        # TODO: Check if dodging, as we will need to keep moving during that
-        if self.busy():
-            # Tarnished is currently busy, and cannot act.
-            self.time_in_action -= 1
         
-        moves = [Actions.MFORWARD, Actions.MBACK, Actions.MLEFT, Actions.MRIGHT]
-        moves = [x for x in actions if x in moves]
-        if moves:
-            # We have some moves to do
-            self.move(moves)
+        def stay_in_arena():
+            """Ensues that we are colliding with walls properly if we are going to hit them.
+            """
+            w = self.width / 2
+            min_left = 150 + w
+            max_right = WIDTH - 150 - w
+            max_up = 150 + w
+            min_down = HEIGHT - 150 - w
 
-        
-        moves = [Actions.MTURNL, Actions.MTURNR]
-        moves = [x for x in actions if x in moves]
-        if len(moves) == 1:
-            # We have to turn
-            print(f"We have to turn: {moves[0]}")
-            if moves[0] == Actions.MTURNL:
-                self.angle -= self.turn_speed
-            else:
-                self.angle += self.turn_speed
-    
+            if self.x < min_left: # Collide left
+                self.x = min_left
+            elif self.x > max_right: # Collide right
+                self.x = max_right
+            
+            if self.y < max_up: # Don't fall up
+                self.y = max_up
+            elif self.y > min_down: # Don't fall down
+                self.y = min_down
+        try:
+            # TODO: Check if dodging, as we will need to keep moving during that
+            if self.busy():
+                # Tarnished is currently busy, and cannot act.
+                self.time_in_action -= 1
+            
+            moves = [Actions.MFORWARD, Actions.MBACK, Actions.MLEFT, Actions.MRIGHT]
+            moves = [x for x in actions if x in moves]
+            if moves:
+                # We have some moves to do
+                self.move(moves)
+
+            
+            moves = [Actions.MTURNL, Actions.MTURNR]
+            moves = [x for x in actions if x in moves]
+            if len(moves) == 1:
+                # We have to turn
+                print(f"We have to turn: {moves[0]}")
+                if moves[0] == Actions.MTURNL:
+                    self.angle -= self.turn_speed
+                else:
+                    self.angle += self.turn_speed
+        finally:
+            stay_in_arena()
+
     def update(self):
         # self.weapon.update()
         pass
