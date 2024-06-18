@@ -5,8 +5,8 @@ class Actions(Enum):
     PRIGHT = auto()
     PFORWARD = auto()
     PBACK = auto()
-    PTURNR = auto()
     PTURNL = auto()
+    PTURNR = auto()
     PDODGE = auto()
     # PKNOCKED = auto() # Player is knocked down
     PATTACK = auto()

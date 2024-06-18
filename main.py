@@ -6,16 +6,16 @@ from entities.margit import Margit
 from entities.base import Entity
 from entities.actions import Actions
 
+from settings import WIDTH, HEIGHT, TPS
+
 # Initialize Pygame
 pygame.init()
 
-WIDTH, HEIGHT = 2000, 1200
 # Set up the display
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Flatten Ring")
 
 BG = pygame.image.load("assets/stage.png")
-TPS = 60 # Ticks per second, not sure if this matters
 
 # Load entity images
 TARNISHED_IMAGE = pygame.image.load("assets/tarnished.png")

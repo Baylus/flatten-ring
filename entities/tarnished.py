@@ -48,8 +48,29 @@ class Tarnished(Entity):
         
         moves = [Actions.PFORWARD, Actions.PBACK, Actions.PLEFT, Actions.PRIGHT]
         moves = [x for x in actions if x in moves]
+        move_ang = self.angle
         if moves:
             # We have some moves to do
             print("We have to move, heres our actions: ")
             print(moves)
-            self.move(moves)
+            move_ang = self.move(moves)
+        # Now is the appropriate time to dodge, because we have the new angle at which we are
+        # going.
+        if Actions.PDODGE in actions:
+            # We are dodging
+            pass
+
+        moves = [Actions.PTURNL, Actions.PTURNR]
+        moves = [x for x in actions if x in moves]
+        if len(moves) == 1:
+            # We have to turn
+            print(f"We have to turn: {moves[0]}")
+            if moves[0] == Actions.PTURNL:
+                self.angle -= self.turn_speed
+            else:
+                self.angle += self.turn_speed
+
+    def dodge(self):
+        """Commence dodge
+        """
+        # Find out angle at which we are dodging

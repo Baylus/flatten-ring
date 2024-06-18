@@ -54,3 +54,14 @@ class Margit(Entity):
         if moves:
             # We have some moves to do
             self.move(moves)
+
+        
+        moves = [Actions.MTURNL, Actions.MTURNR]
+        moves = [x for x in actions if x in moves]
+        if len(moves) == 1:
+            # We have to turn
+            print(f"We have to turn: {moves[0]}")
+            if moves[0] == Actions.MTURNL:
+                self.angle -= self.turn_speed
+            else:
+                self.angle += self.turn_speed

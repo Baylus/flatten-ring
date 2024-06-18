@@ -45,7 +45,15 @@ class Entity():
     def attack(self):
         raise NotImplementedError
 
-    def move(self, actions: list[Actions]):
+    def move(self, actions: list[Actions]) -> int:
+        """Moves at a certain angle depending on current look angle and which directions we are moving to.
+
+        Args:
+            actions (list[Actions]): _description_
+
+        Returns:
+            int: The angle at which we were moving.
+        """
         # CONSIDER: Adjust distance traveled when moving backwards.
         ang_offset = 0
         if len(actions) > 1:
@@ -81,6 +89,8 @@ class Entity():
         new_pos = calculate_new_xy((self.x, self.y), self.velocity, move_ang)
         print(f"Old position {(self.x, self.y)}.... New pos {new_pos}")
         self.x, self.y = new_pos
+
+        return move_ang
 
         
     def dodge(self):
