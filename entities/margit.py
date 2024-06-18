@@ -30,7 +30,6 @@ class Margit(Entity):
 
         self.health = 3000
         self.max_health = 3000
-        
 
         self.x = 1200
         self.y = 600
@@ -38,8 +37,6 @@ class Margit(Entity):
 
         self.width = 100
         self.height = 100
-        
-        # self. = 
 
     def do_actions(self, actions):
         """Handle all actions provided
@@ -69,8 +66,21 @@ class Margit(Entity):
             else:
                 self.angle += self.turn_speed
     
+    def update(self):
+        # self.weapon.update()
+        pass
+    
     def draw(self, surface):
         rotated_image = pygame.transform.rotate(MARGIT_IMAGE, -self.angle)
         new_rect = rotated_image.get_rect(center=(self.x, self.y))
         surface.blit(rotated_image, new_rect.topleft)
         # self.weapon.draw(surface)
+    
+    
+    # def give_target(self, target):
+    #     """Determines target which instantiates the weapon.
+
+    #     Args:
+    #         target (Entity): Target to damage
+    #     """
+    #     self.weapon = Weapon(target)

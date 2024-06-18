@@ -43,6 +43,9 @@ def draw_entity(entity: Entity, image):
     WIN.blit(rotated_image, new_rect.topleft)
 
 def main():
+    # Initial housekeeping
+    tarnished.give_target(margit)
+
     clock = pygame.time.Clock()
 
     # Main game loop
@@ -58,6 +61,10 @@ def main():
         apply_actions(actions)
 
         # Game logic here
+        margit.update()
+        tarnished.update()
+
+        # check_collisions(tarnished.weapon, margit)
 
         # Garbage drawing of rectangles
         draw()
@@ -159,6 +166,12 @@ def apply_actions(actions):
     
     # Do Margit Actions
     margit.do_actions(actions)
+
+def check_collisions(weapon, target):
+    if weapon.swinging and weapon.get_hitbox().colliderect(pygame.Rect(target.x, target.y, target.width, target.height)):
+        target.health -= 1
+        print(f"{target.name} hit! Health: {target.health}")
+
 
 if __name__ == "__main__":
     main()

@@ -2,6 +2,7 @@ import pygame
 
 from utilities import calculate_new_xy
 from settings import TPS, HEIGHT, TARNISHED_IMAGE
+# from main import margit
 
 from .base import Entity
 from .actions import Actions
@@ -21,6 +22,7 @@ class Tarnished(Entity):
         Turn
     """
     turn_speed = 7
+    weapon_damage = 5
 
     def __init__(self):
         self.name = "Tarnished"
@@ -37,7 +39,7 @@ class Tarnished(Entity):
         
         self.default_rect_color = "green"
         self.pygame_obj = pygame.Rect(self.x, self.y, self.width, self.height)
-        self.weapon = Weapon(self)
+        self.weapon = None
 
     def do_actions(self, actions):
         """Handle all actions provided
@@ -69,6 +71,10 @@ class Tarnished(Entity):
             # Start a swing
             self.current_action = Actions.PATTACK
             self.time_in_action = 10
+            # NOTE: We have to set the damage back, because we will be using the current damage on the weapon
+            # to disable the weapon from damaging the character again.
+            self.weapon.damage = self.weapon_damage
+            self.weapon.start_attack()
             return
 
         moves = [Actions.PFORWARD, Actions.PBACK, Actions.PLEFT, Actions.PRIGHT]
@@ -107,3 +113,11 @@ class Tarnished(Entity):
         new_rect = rotated_image.get_rect(center=(self.x, self.y))
         surface.blit(rotated_image, new_rect.topleft)
         self.weapon.draw(surface)
+    
+    def give_target(self, target):
+        """Determines target which instantiates the weapon.
+
+        Args:
+            target (Entity): Target to damage
+        """
+        self.weapon = Weapon(self, target)
