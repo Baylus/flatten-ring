@@ -22,9 +22,6 @@ class Entity():
     angle: int = 0 # Where it is currently looking
     turn_speed: int = 5 # How fast the character can rotate, degrees/tick
 
-    image_url: str
-    default_rect_color: str = "red"
-    # pygame_obj = None
     hitbox_coefficient = 1
 
     def __init__(self):
@@ -34,7 +31,7 @@ class Entity():
 
     def busy(self) -> bool:
         if self.current_action:
-            if self.time_in_action > 0:
+            if self.time_left_in_action > 0:
                 return True
             else:
                 # We still have our current action, but we finished it.
@@ -95,9 +92,26 @@ class Entity():
 
         return move_ang
 
-        
-    def dodge(self):
-        raise NotImplementedError
+
+    def get_state(self):
+        """Gets the total status needed for a given character for the game state
+
+        Returns:
+            Dictionary of the following items
+                x position
+                y position
+
+        """
+        status = {}
+        status["x"] = self.x
+        status["y"] = self.y
+        status["health"] = self.health
+        status["max_health"] = self.max_health
+        status["current_action"] = self.current_action
+        status["time_in_action"] = self.time_in_action
+        status["angle"] = self.angle
+
+        return status
 
     def take_damage(self, damage: int) -> int:
         """Forces character to take specified amount of damage

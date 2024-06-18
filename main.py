@@ -1,12 +1,16 @@
+import datetime as dt
+import json
 import pygame
 import sys
+import string
 
 from entities.tarnished import Tarnished
 from entities.margit import Margit
 from entities.base import Entity
 from entities.actions import Actions
+from entities.exceptions import *
 
-from settings import WIDTH, HEIGHT, TPS, MARGIT_IMAGE, TARNISHED_IMAGE
+from settings import WIDTH, HEIGHT, TPS, GAME_VERSION, FITNESS_VERSION
 
 # Initialize Pygame
 pygame.init()
@@ -42,29 +46,91 @@ def draw_entity(entity: Entity, image):
 
 def main():
     # Initial housekeeping
+    """Game states:
+    Game states will be comprised of several things:
+        - Current states of all objects
+        - Outputs from the network
+    Each of these will be for every tick we process, from which we will log them
+    all utilizing this metric.
+
+    Once the game has finished, the total game status will be stored with all the
+    game states, the current game version, the fitness version,
+    the winner of the match, and the total fitness for each side.
+    """
+    game_result = { # For recording all other elements and storing final output of logging function
+        "winner": "draw", # Default incase something fails
+        "tarnished_fitness": 0,
+        "margit_fitness": 0,
+        "game_version": GAME_VERSION,
+        "fitness_version": FITNESS_VERSION,
+        "notes": "",
+        "game_states": []
+    }
+
     tarnished.give_target(margit)
     margit.give_target(tarnished)
 
     clock = pygame.time.Clock()
+    try:
+        # Main game loop
+        running = True
+        while running:
+            clock.tick(TPS)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
 
-    # Main game loop
-    running = True
-    while running:
-        clock.tick(TPS)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+            curr_state = {
+                "tick": pygame.time.get_ticks(),
+                "tarnished": {
+                    "state": tarnished.get_state()
+                },
+                "margit": {
+                    "state": margit.get_state()
+                }
+            }
 
-        keys = pygame.key.get_pressed()
-        actions = get_actions(keys)
-        apply_actions(actions)
+            keys = pygame.key.get_pressed()
+            actions = get_actions(keys)
+            
+            # Add actions chosen to our game state.
+            curr_state["tarnished"]["actions"] = [x for x in actions if int(x) < int(Actions.MLEFT)]
+            curr_state["margit"]["actions"] = [x for x in actions if  int(x) >= int(Actions.MLEFT)]
+            
+            apply_actions(actions)
 
-        # Game logic here
-        tarnished.update()
-        margit.update()
+            # Game logic here
+            tarnished.update()
+            margit.update()
 
-        draw()
+            draw()
+            
+            game_result["game_states"].append(curr_state)
+    except TarnishedDied:
+        # Update winner
+        game_result["winner"] = "margit"
+        # Update the state of the last game tick for tarnished status
+        game_result["game_states"][-1]["tarnished"]["state"] = tarnished.get_state()
+    except MargitDied:
+        # Update winner
+        game_result["winner"] = "tarnished"
+        # Update the state of the last game tick for margit status
+        game_result["game_states"][-1]["margit"]["state"] = margit.get_state()
+    finally:
+        # Record our game state
+        last_state = game_result["game_states"][-1]
+        game_result["tarnished_fitness"] = get_tarnished_fitness(last_state)
+        game_result["margit_fitness"] = get_margit_fitness(last_state)
 
+        file_name = f"{dt.datetime.now().time()}"
+        file_name += f"-{game_result['tarnished_fitness']}"
+        file_name += f"-{game_result['margit_fitness']}"
+        file_name += f"-{game_result['fitness_version']}"
+        file_name += f"-{game_result['game_version']}"
+        file_name += ".json"
+        file_name = file_name.replace(":", "_")
+        with open(f"game_states/{file_name}", 'w') as f:
+            json.dump(game_result, f, indent=4)
     pygame.quit()
     sys.exit()
 
@@ -163,6 +229,13 @@ def apply_actions(actions):
     # Do Margit Actions
     margit.do_actions(actions)
 
+####### Fitness ############
+
+def get_tarnished_fitness(state):
+    return 0
+
+def get_margit_fitness(state):
+    return 0
 
 
 if __name__ == "__main__":
