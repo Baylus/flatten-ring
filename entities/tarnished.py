@@ -6,7 +6,7 @@ from settings import TPS, WIDTH, HEIGHT, TARNISHED_IMAGE, HEALTH_BAR_WIDTHS, HEA
 
 from .base import Entity
 from .actions import Actions
-from .exceptions import TarnishedDied
+from .exceptions import *
 from .attacks.weapon import Weapon
 
 class Tarnished(Entity):
@@ -74,7 +74,7 @@ class Tarnished(Entity):
                     new_pos = calculate_new_xy((self.x, self.y), self.velocity * 1.5, self.angle)
                     self.x, self.y = new_pos
 
-                self.time_in_action -= 1
+                self.time_left_in_action -= 1
                 return
             
             # Trigger death if we have fell into ravine.
@@ -91,7 +91,7 @@ class Tarnished(Entity):
                 # Start a swing
                 self.current_action = Actions.PATTACK
                 actdetails = self.action_details[Actions.PATTACK]
-                self.time_in_action = actdetails["time_in_action"]
+                self.time_left_in_action = actdetails["time_in_action"]
                 # NOTE: We have to set the damage back, because we will be using the current damage on the weapon
                 # to disable the weapon from damaging the character again.
                 self.weapon.damage = actdetails["damage"]
@@ -113,7 +113,7 @@ class Tarnished(Entity):
                 # We are dodging
                 self.current_action = Actions.PDODGE
                 actdetails = self.action_details[Actions.PDODGE]
-                self.time_in_action = actdetails["time_in_action"]
+                self.time_left_in_action = actdetails["time_in_action"]
                 self.iframes = actdetails["iframes"]
                 self.angle = move_ang
                 return # Can't do any other actions now.
@@ -133,7 +133,10 @@ class Tarnished(Entity):
 
     def update(self):
         self.iframes -= 1 # Take away an iframe in case we have one
-        self.weapon.update()
+        try:
+            self.weapon.update()
+        except CharacterDied:
+            raise MargitDied
 
     def draw(self, surface):
         rotated_image = pygame.transform.rotate(TARNISHED_IMAGE, -self.angle)
@@ -151,6 +154,13 @@ class Tarnished(Entity):
             self.max_health, 
             self.name)
     
+    def get_state(self):
+        state = super().get_state()
+        state["weapons"] = {
+            Actions.PATTACK: self.weapon.get_state()
+        }
+        return state
+
     def give_target(self, target):
         """Determines target which instantiates the weapon.
 

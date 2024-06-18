@@ -78,6 +78,19 @@ class Weapon:
     def get_hitbox(self):
         return self.rect
     
+    def get_state(self):
+        """We should only need the status of the weapon if it is currently attacking.
+        """
+        status = {}
+        if self.swinging:
+            status["x"] = self.rect.x
+            status["y"] = self.rect.y
+            # Negative so that we are swinging the right way. DO NOT TOUCH THIS!!!!
+            total_angle = self.owner.angle - self.angle
+            status["angle"] = total_angle
+
+        return status
+    
     def check_collisions(self):
         # TODO: Update this to make margit's collision box smaller. Its too fat right now.
         # if self.swinging and self.get_hitbox().colliderect(pygame.Rect(self.target.x, self.target.y, self.target.width, self.target.height)):

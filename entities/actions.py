@@ -1,6 +1,6 @@
-from enum import Enum, auto
+from enum import IntEnum, auto
 
-class Actions(Enum):
+class Actions(IntEnum):
     PLEFT = auto()
     PRIGHT = auto()
     PFORWARD = auto()
@@ -11,7 +11,7 @@ class Actions(Enum):
     # PKNOCKED = auto() # Player is knocked down
     PATTACK = auto()
     
-    MLEFT = auto()
+    MLEFT = auto() # DO NOT REORGANIZE THIS. THIS IS BEING USED TO SIGNAL THE START OF THE MARGIT ACTIONS
     MRIGHT = auto()
     MFORWARD = auto()
     MBACK = auto()

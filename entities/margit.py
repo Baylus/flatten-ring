@@ -107,7 +107,7 @@ class Margit(Entity):
             # TODO: Check if dodging, as we will need to keep moving during that
             if self.busy():
                 # Margit is currently busy, and cannot act.
-                self.time_in_action -= 1
+                self.time_left_in_action -= 1
                 self.lead_time_before_action -= 1
                 if self.lead_time_before_action == 0:
                     print("We are done with lead time for margit attack")
@@ -137,14 +137,14 @@ class Margit(Entity):
                 # Start a swing
                 if Actions.MSLASH in moves:
                     self.current_action = Actions.MSLASH
-                    self.time_in_action = self.weapon_details[Actions.MSLASH]["attack_time"]
+                    self.time_left_in_action = self.weapon_details[Actions.MSLASH]["attack_time"]
                     # NOTE: We have to set the damage back, because we will be using the current damage on the weapon
                     # to disable the weapon from damaging the character again.
                     self.slash.damage = self.weapon_details[Actions.MSLASH]["damage"]
                     self.lead_time_before_action = self.weapon_details[Actions.MSLASH]["lead_time"]
                 elif Actions.MREVSLASH in moves:
                     self.current_action = Actions.MREVSLASH
-                    self.time_in_action = self.weapon_details[Actions.MREVSLASH]["attack_time"]
+                    self.time_left_in_action = self.weapon_details[Actions.MREVSLASH]["attack_time"]
                     # NOTE: We have to set the damage back, because we will be using the current damage on the weapon
                     # to disable the weapon from damaging the character again.
                     self.slash.damage = self.weapon_details[Actions.MREVSLASH]["damage"]
@@ -152,7 +152,7 @@ class Margit(Entity):
                 elif Actions.MDAGGERS in moves:
                     print("Designating creating daggers later")
                     self.current_action = Actions.MDAGGERS
-                    self.time_in_action = self.weapon_details[Actions.MDAGGERS]["attack_time"]
+                    self.time_left_in_action = self.weapon_details[Actions.MDAGGERS]["attack_time"]
                     self.lead_time_before_action = self.weapon_details[Actions.MDAGGERS]["lead_time"]
                 
                 return
@@ -216,7 +216,16 @@ class Margit(Entity):
             self.max_health,
             self.name)
         
-    
+    def get_state(self):
+        state = super().get_state()
+        state["weapons"] = {
+            Actions.MSLASH: self.slash.get_state(),
+            Actions.MREVSLASH: self.rev_slash.get_state(),
+            Actions.MDAGGERS: [x.get_state() for x in self.daggers]
+        }
+
+        return state
+
     
     def give_target(self, target):
         """Determines target which instantiates the weapon.
