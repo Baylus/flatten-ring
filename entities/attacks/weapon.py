@@ -61,7 +61,7 @@ class Weapon:
         if self.swinging:
             # Negative so that we are swinging the right way. DO NOT TOUCH THIS!!!!
             total_angle = self.owner.angle - self.angle
-            print(f"Calculating weapon angle: {total_angle} = {self.owner.angle} + {self.angle}")
+            # print(f"Calculating weapon angle: {total_angle} = {self.owner.angle} + {self.angle}")
             rotated_image = pygame.transform.rotate(self.image, -total_angle)
             
             offset_distance = self.weapon_distance
@@ -80,7 +80,8 @@ class Weapon:
     
     def check_collisions(self):
         # TODO: Update this to make margit's collision box smaller. Its too fat right now.
-        if self.swinging and self.get_hitbox().colliderect(pygame.Rect(self.target.x, self.target.y, self.target.width, self.target.height)):
+        # if self.swinging and self.get_hitbox().colliderect(pygame.Rect(self.target.x, self.target.y, self.target.width, self.target.height)):
+        if self.swinging and self.get_hitbox().colliderect(self.target.get_hitbox()):
             dmgtaken = self.target.take_damage(self.damage)
             if dmgtaken:
                 print(f"{self.target.name} hit for {dmgtaken}! Health: {self.target.health}")

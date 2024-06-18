@@ -8,7 +8,14 @@ from .actions import Actions
 from .attacks.margit_weapons import Slash, Dagger
 
 class Margit(Entity):
-    """_summary_
+    """Margit, the enemy boss.
+
+    Generally Margit is much slower than the Tarnished both in speed and turn speed, but has more hp, 
+    and no dodge (MAY CHANGE, but it will be more cumbersome if it is added).
+
+    Margit will have more hp and cannot fall off the platform, but will have less
+    access to inputs from the player, like what their angle is to dodge the Tarnished's
+    attacks or to predict where they will exit dodge from.
 
     Args:
         Entity (_type_): _description_
@@ -41,6 +48,7 @@ class Margit(Entity):
 
         self.width = 100
         self.height = 100
+        self.hitbox_coefficient = 1.1
 
         self.weapon_details = {
             Actions.MSLASH: {

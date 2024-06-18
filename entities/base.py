@@ -25,6 +25,7 @@ class Entity():
     image_url: str
     default_rect_color: str = "red"
     # pygame_obj = None
+    hitbox_coefficient = 1
 
     def __init__(self):
         super().__init__()
@@ -118,3 +119,6 @@ class Entity():
                 raise CharacterDied
             return damage
         return 0
+
+    def get_hitbox(self) -> pygame.Rect:
+        return pygame.Rect(self.x, self.y, self.width * self.hitbox_coefficient, self.height * self.hitbox_coefficient)
