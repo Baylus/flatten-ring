@@ -57,15 +57,14 @@ class Weapon:
 
     def draw(self, surface):
         if self.swinging:
-            # Calculate the rotation angle based on the owner's angle and weapon's swing angle
-            total_angle = self.owner.angle + self.angle
+            # Negative so that we are swinging the right way. DO NOT TOUCH THIS!!!!
+            total_angle = self.owner.angle - self.angle
             print(f"Calculating weapon angle: {total_angle} = {self.owner.angle} + {self.angle}")
-            rotated_image = pygame.transform.rotate(self.image, total_angle)
+            rotated_image = pygame.transform.rotate(self.image, -total_angle)
             
-            # Calculate the offset for the weapon's position
-            offset_distance = self.weapon_distance  # Distance from the player's center to the weapon, adjust as needed
+            offset_distance = self.weapon_distance
             offset_x = math.cos(math.radians(total_angle)) * offset_distance
-            offset_y = -math.sin(math.radians(total_angle)) * offset_distance
+            offset_y = math.sin(math.radians(total_angle)) * offset_distance
             
             # Get the new rect for the rotated image
             new_rect = rotated_image.get_rect(center=(self.owner.x + offset_x, self.owner.y + offset_y))
