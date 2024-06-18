@@ -1,17 +1,18 @@
 import pygame
 import sys
-from enum import Enum, auto
 
 from entities.tarnished import Tarnished
 from entities.margit import Margit
+from entities.base import Entity
+from entities.actions import Actions
 
 WIDTH, HEIGHT = 2000, 1200
 # Set up the display
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("2D Game")
+pygame.display.set_caption("Flatten Ring")
 
 BG = pygame.image.load("assets/stage.png")
-TPS = 30 # Ticks per second, not sure if this matters
+TPS = 60 # Ticks per second, not sure if this matters
 
 
 tarnished = Tarnished()
@@ -19,10 +20,12 @@ margit = Margit()
 
 entities = [tarnished, margit]
 
-def draw(player):
+def draw(drawables: list[Entity]):
     WIN.blit(BG, (0,0))
 
-    pygame.draw.rect(WIN, "green", player)
+    # TODO: This cannot possibly be the way to do this...
+    for i in range(len(drawables)):
+        pygame.draw.rect(WIN, entities[i].default_rect_color, drawables[i])
 
     pygame.display.update()
 
@@ -31,47 +34,28 @@ def main():
     pygame.init()
 
     player = pygame.Rect(tarnished.x, tarnished.y, tarnished.width, tarnished.height)
+    enemy = pygame.Rect(margit.x, margit.y, margit.width, margit.height)
+    clock = pygame.time.Clock()
 
     # Main game loop
     running = True
     while running:
+        clock.tick(TPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
         keys = pygame.key.get_pressed()
+        actions = get_actions(keys)
+        apply_actions(actions)
 
         # Game logic here
-        draw(player)
 
-        # # Update the display
-        # pygame.display.flip()
+        # Garbage drawing of rectangles
+        draw([player, enemy])
 
     pygame.quit()
     sys.exit()
-
-class Actions(Enum):
-    PLEFT = auto()
-    PRIGHT = auto()
-    PFORWARD = auto()
-    PBACK = auto()
-    PTURNR = auto()
-    PTURNL = auto()
-    PDODGE = auto()
-    # PKNOCKED = auto() # Player is knocked down
-    PATTACK = auto()
-    
-    MLEFT = auto()
-    MRIGHT = auto()
-    MFORWARD = auto()
-    MBACK = auto()
-    MTURNR = auto()
-    MTURNL = auto()
-    MRETREAT = auto()
-    # Margit Attacks
-    MSLASH = auto()
-    MREVSLASH = auto()
-    MDAGGERS = auto()
 
 def get_actions(inputs) -> list[int]:
     """Create list of actions that should be taken based on the inputs
@@ -163,15 +147,10 @@ def apply_actions(actions):
         actions (_type_): List of actions to take
     """
     # Do tarnished action first
-    if tarnished.busy():
-        # Tarnished is currently busy, and cannot act.
-        tarnished.time_in_action -= 1
+    tarnished.do_actions(actions)
     
     # Do Margit Actions
-    if margit.busy():
-        # Margit is currently busy, and cannot act.
-        margit.time_in_action -= 1
-    pass
+    margit.do_actions(actions)
 
 if __name__ == "__main__":
     main()

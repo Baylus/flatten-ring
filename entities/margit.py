@@ -1,4 +1,5 @@
 from .base import Entity
+from .actions import Actions
 
 class Margit(Entity):
     """_summary_
@@ -35,3 +36,20 @@ class Margit(Entity):
         self.height = 100
         
         # self. = 
+
+    def do_actions(self, actions):
+        """Handle all actions provided
+
+        Args:
+            actions (_type_): _description_
+        """
+        # TODO: Check if dodging, as we will need to keep moving during that
+        if self.busy():
+            # Tarnished is currently busy, and cannot act.
+            self.time_in_action -= 1
+        
+        moves = [Actions.MFORWARD, Actions.MBACK, Actions.MLEFT, Actions.MRIGHT]
+        moves = [x for x in actions if x in moves]
+        if moves:
+            # We have some moves to do
+            self.move(moves)
