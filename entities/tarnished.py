@@ -1,7 +1,7 @@
 import pygame
 
 from utilities import calculate_new_xy, draw_health_bar
-from settings import TPS, WIDTH, HEIGHT, TARNISHED_IMAGE, HEALTH_BAR_WIDTHS, HEALTH_BAR_HEIGHTS, DEFAULT_HEALTH_BAR_PADDING
+from config.settings import TPS, WIDTH, HEIGHT, TARNISHED_IMAGE, HEALTH_BAR_WIDTHS, HEALTH_BAR_HEIGHTS, DEFAULT_HEALTH_BAR_PADDING
 # from main import margit
 
 from .base import Entity

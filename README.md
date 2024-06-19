@@ -1,4 +1,4 @@
-# flat-souls
+# flatten ring
 2D Darksouls-like game that is trained via genetic algorithms
 
 NOTE: I actually have only played like an hour of DS3, but a good amount of elden ring so I will be using terminology appropriate to this.
@@ -13,8 +13,8 @@ It may be possible to replace the time remaining in actions with a general curre
  - Current Angle
  - Margit X
  - Margit Y
- - Margit's current action
  - Margit's angle
+ - Margit's current action
  - Time remaining in Margit action
 ###### Maybe:
  - Health of Tarnished
@@ -55,11 +55,11 @@ We will need Tarnished's current angle so that Margit knows whether it is in the
  - Back
  - Turn Left
  - Turn Right
- - Attack
- - Retreat
-###### Maybe:
- - Reverse Attack
+ - Slash Attack
+ - Reverse Slash
  - Daggers
+###### Maybe:
+ - Retreat
 
 Note: Margit will have lead time on all his actions, similar to how the game works in elden ring. This is to simulate the reactions that players can have to a specific attack when they see it coming. This will be the advantage that the Tarnished has over Margit.
 

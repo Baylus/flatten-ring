@@ -3,6 +3,7 @@ import json
 import pygame
 import sys
 import string
+import neat
 
 from entities.tarnished import Tarnished
 from entities.margit import Margit
@@ -10,7 +11,16 @@ from entities.base import Entity
 from entities.actions import Actions
 from entities.exceptions import *
 
-from settings import WIDTH, HEIGHT, TPS, GAME_VERSION, FITNESS_VERSION
+from config.settings import *
+
+
+######## DELETE GAME STATES ############
+from pathlib import Path
+
+[f.unlink() for f in Path("game_states").glob("*") if f.is_file()] 
+
+##################
+
 
 # Initialize Pygame
 pygame.init()
@@ -21,30 +31,60 @@ pygame.display.set_caption("Flatten Ring")
 
 BG = pygame.image.load("assets/stage.png")
 
-tarnished = Tarnished()
-margit = Margit()
+tarnished = None
+margit = None
 
-entities = [tarnished, margit]
+tarnished_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                            neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                            TARNISH_NEAT_PATH)
+
+margit_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                            neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                            MARGIT_NEAT_PATH)
+
+# Create the population
+population_tarnished = neat.Population(tarnished_neat_config)
+population_margit = neat.Population(margit_neat_config)
+
+# Define the fitness function
+def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
+    print(type(genomes_tarnished))
+    print(type(genomes_margit))
+    if type(genomes_tarnished) == dict:
+        genomes_tarnished = list(genomes_tarnished.items())
+    if type(genomes_margit) == dict:
+        genomes_margit = list(genomes_margit.items())
+
+    # Initializing everything to 0 and not None
+    for _, genome in genomes_tarnished:
+        genome.fitness = 0
+    for _, genome in genomes_margit:
+        genome.fitness = 0
+
+    for (genome_id_player, genome_tarnished), (genome_id_enemy, genome_margit) in zip(genomes_tarnished, genomes_margit):
+        # Create separate neural networks for player and enemy
+        player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
+        enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
+        
+        # Run the simulation
+        player_fitness, enemy_fitness = main(player_net, enemy_net)
+        
+        # Assign fitness to each genome
+        genome_tarnished.fitness = player_fitness
+        genome_margit.fitness = enemy_fitness
+
+        assert genome_tarnished.fitness is not None
+        assert genome_margit.fitness is not None
 
 def draw():
     WIN.blit(BG, (0,0))
 
-    # draw_entity(tarnished, TARNISHED_IMAGE)
     tarnished.draw(WIN)
-    # draw_entity(margit, MARGIT_IMAGE)
     margit.draw(WIN)
 
     pygame.display.update()
 
-def draw_entity(entity: Entity, image):
-    # Rotate the image
-    rotated_image = pygame.transform.rotate(image, -entity.angle)
-    # Get the new rect with the center in the correct position
-    new_rect = rotated_image.get_rect(center=(entity.x, entity.y))
-    # Draw the rotated image on the screen
-    WIN.blit(rotated_image, new_rect.topleft)
-
-def main():
+def main(tarnished_net, margit_net) -> tuple[int]:
     # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
@@ -57,6 +97,12 @@ def main():
     game states, the current game version, the fitness version,
     the winner of the match, and the total fitness for each side.
     """
+    global tarnished
+    global margit
+    # Reset the npcs
+    tarnished = Tarnished()
+    margit = Margit()
+
     game_result = { # For recording all other elements and storing final output of logging function
         "winner": "draw", # Default incase something fails
         "tarnished_fitness": 0,
@@ -71,6 +117,7 @@ def main():
     margit.give_target(tarnished)
 
     clock = pygame.time.Clock()
+    updates = 0
     try:
         # Main game loop
         running = True
@@ -90,14 +137,15 @@ def main():
                 }
             }
 
-            keys = pygame.key.get_pressed()
-            actions = get_actions(keys)
+            # Get actions from current state
+            tarnish_actions = get_tarnished_actions(tarnished_net, curr_state)
+            curr_state["tarnished"]["actions"] = tarnish_actions
+            margit_actions = get_margit_actions(margit_net, curr_state)
+            curr_state["margit"]["actions"] = margit_actions
             
-            # Add actions chosen to our game state.
-            curr_state["tarnished"]["actions"] = [x for x in actions if int(x) < int(Actions.MLEFT)]
-            curr_state["margit"]["actions"] = [x for x in actions if  int(x) >= int(Actions.MLEFT)]
-            
-            apply_actions(actions)
+            # Do tarnished action first
+            tarnished.do_actions(tarnish_actions)
+            margit.do_actions(margit_actions)
 
             # Game logic here
             tarnished.update()
@@ -106,21 +154,27 @@ def main():
             draw()
             
             game_result["game_states"].append(curr_state)
+            updates += 1
+            # print(updates)
+            if updates > MAX_UPDATES_PER_GAME:
+                game_result["notes"] = "Game stalemated"
+                running = False
     except TarnishedDied:
         # Update winner
         game_result["winner"] = "margit"
         # Update the state of the last game tick for tarnished status
         game_result["game_states"][-1]["tarnished"]["state"] = tarnished.get_state()
-    except MargitDied:
+    except MargitDied as e:
         # Update winner
         game_result["winner"] = "tarnished"
         # Update the state of the last game tick for margit status
         game_result["game_states"][-1]["margit"]["state"] = margit.get_state()
+        game_result["notes"] = "Margit died to: " + str(e)
     finally:
         # Record our game state
         last_state = game_result["game_states"][-1]
-        game_result["tarnished_fitness"] = get_tarnished_fitness(last_state)
-        game_result["margit_fitness"] = get_margit_fitness(last_state)
+        game_result["tarnished_fitness"] = int(get_tarnished_fitness(game_result))
+        game_result["margit_fitness"] = int(get_margit_fitness(game_result))
 
         file_name = f"{dt.datetime.now().time()}"
         file_name += f"-{game_result['tarnished_fitness']}"
@@ -131,8 +185,117 @@ def main():
         file_name = file_name.replace(":", "_")
         with open(f"game_states/{file_name}", 'w') as f:
             json.dump(game_result, f, indent=4)
-    pygame.quit()
-    sys.exit()
+    
+    return game_result["tarnished_fitness"], game_result["margit_fitness"]
+
+
+TARNISHED_OUTPUT_MAP = [ # ABSOLUTELY CRITICAL THIS IS NOT TOUCHED OR THE NETWORK WILL NEED TO BE RETRAINED
+    Actions.PLEFT,
+    Actions.PRIGHT,
+    Actions.PFORWARD,
+    Actions.PBACK,
+    Actions.PTURNL,
+    Actions.PTURNR,
+    Actions.PDODGE,
+    Actions.PATTACK,
+]
+
+def get_tarnished_actions(net, gamestate) -> list[Actions]:
+    """_summary_
+
+    Args:
+        tarnished_net (_type_): _description_
+        gamestate (_type_): _description_
+
+    TARNISHED_INPUT_MAP = [
+        X Position
+        Y Position
+        Current Angle
+        Margit X
+        Margit Y
+        Margit's angle
+        Margit's current action
+        Time remaining in Margit action
+    ]
+    """
+    tarnished_state = gamestate["tarnished"]["state"]
+    margit_state = gamestate["margit"]["state"]
+    inputs = (
+        tarnished_state["x"],
+        tarnished_state["y"],
+        tarnished_state["angle"],
+        margit_state["x"],
+        margit_state["y"],
+        margit_state["angle"],
+        margit_state["current_action"] or -1,
+        margit_state["time_in_action"],
+    )
+    # print(inputs)
+
+    # Now get the recommended outputs
+    outputs = net.activate(inputs)
+
+    # Now map to actions
+    # Go through every element in the output, and if it exists, then place the corresponding
+    # action into the list.
+    actions = [TARNISHED_OUTPUT_MAP[i] for i in range(len(outputs)) if outputs[i]]
+    print(actions)
+    return actions
+
+MARGIT_OUTPUT_MAP = [ # ABSOLUTELY CRITICAL THIS IS NOT TOUCHED OR THE NETWORK WILL NEED TO BE RETRAINED
+    Actions.MLEFT,
+    Actions.MRIGHT,
+    Actions.MFORWARD,
+    Actions.MBACK,
+    Actions.MTURNR,
+    Actions.MTURNL,
+    Actions.MRETREAT,
+    Actions.MSLASH,
+    Actions.MREVSLASH,
+    Actions.MDAGGERS,
+]
+
+def get_margit_actions(net, gamestate) -> list[Actions]:
+    """_summary_
+
+    Args:
+        net (_type_): _description_
+        gamestate (_type_): _description_
+    
+    MARGIT_INPUT_MAP = [
+        X Position
+        Y Position
+        Current Angle
+        Tarnished X
+        Tarnished Y
+        Tarnished's angle
+        Tarnished's current action
+        Time remaining in Tarnished action
+    ]
+    """
+    tarnished_state = gamestate["tarnished"]["state"]
+    margit_state = gamestate["margit"]["state"]
+    inputs = (
+        margit_state["x"],
+        margit_state["y"],
+        margit_state["angle"],
+        tarnished_state["x"],
+        tarnished_state["y"],
+        tarnished_state["angle"],
+        tarnished_state["current_action"] or -1,
+        tarnished_state["time_in_action"],
+    )
+
+    # Now get the recommended outputs
+    outputs = net.activate(inputs)
+    
+    # Now map to actions
+    # Go through every element in the output, and if it exists, then place the corresponding
+    # action into the list.
+    actions = [MARGIT_OUTPUT_MAP[i] for i in range(len(outputs)) if outputs[i]]
+
+    print(actions)
+    return actions
 
 def get_actions(inputs) -> list[int]:
     """Create list of actions that should be taken based on the inputs
@@ -217,26 +380,81 @@ def get_actions(inputs) -> list[int]:
     return actions
 
 
-def apply_actions(actions):
-    """Apply output actions to the game state.
-
-    Args:
-        actions (_type_): List of actions to take
-    """
-    # Do tarnished action first
-    tarnished.do_actions(actions)
-    
-    # Do Margit Actions
-    margit.do_actions(actions)
-
 ####### Fitness ############
 
-def get_tarnished_fitness(state):
-    return 0
+def get_tarnished_fitness(result):
+    last_state = result["game_states"][-1]
+    fitness = 0
 
-def get_margit_fitness(state):
-    return 0
+    # Reward for damaging % more the enemy than you got damaged
+    # tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
+    # margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
+    # diff = tarnished_percent - margit_percent
+    # if diff > 0:
+    #     fitness += diff * 10
+    margit_missing_health = last_state["margit"]["state"]["max_health"] - last_state["margit"]["state"]["health"]
+    fitness += margit_missing_health * 5
+
+    if result["winner"] == "tarnished":
+        # Major fitness points, this is very hard
+        fitness += 300
+    elif result["winner"] == "draw":
+        # only slight fitness loss, but I want to encourage them to fight
+        fitness -= 25
+    else:
+        # You lost, but % health will already take a big beating, so slight punishment
+        # This avoids stacking loss too much that they are scared to fight at all
+        fitness -= 15
+    
+    fitness += len(result["game_states"]) * 0.1
+
+    if "fall" in result["notes"]:
+        # Don't fall into pits
+        fitness -= 150
+    
+    return fitness
+
+def get_margit_fitness(result):
+    last_state = result["game_states"][-1]
+    fitness = 0
+
+    # Reward for damaging % more the enemy than you got damaged
+    tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
+    margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
+    diff = (margit_percent - tarnished_percent)
+    # Now check which direction it is in, and weight it accordingly
+    if diff < 0:
+        # NOTE: += because diff is already negative
+        fitness += diff * 2 # Heavier losses if we lose more than if we gain more
+    else:
+        fitness += diff
+
+    if result["winner"] == "tarnished":
+        # Major fitness points, Margit should not lose
+        fitness -= 300
+    elif result["winner"] == "draw":
+        # Biggest draw loss on Margit, he should be pressuring Tarnished
+        fitness -= 50
+    else:
+        # Margit's expected victory
+        fitness += 100
+    
+    if "fall" in result["notes"]:
+        # Don't fall into pits
+        fitness -= 5
+    
+    return fitness
 
 
 if __name__ == "__main__":
-    main()
+    # Run NEAT for player and enemy separately
+    
+    # print(type(genomes))
+    print(type(population_margit.population))
+
+    winner_player = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=50)
+    winner_enemy = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=50)
+
+    
+
+pygame.quit()
