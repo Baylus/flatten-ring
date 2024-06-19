@@ -8,3 +8,15 @@ Only seen a couple of generations, but I feel like it would be best to change th
 My ideas would be to take away the penalty from the Tarnished for taking more damage than Margit, but increase its reward from coming out on top. Also slightly incentivizing it to stay alive, but not by a ton, because I dont want it running away from a fight.
 
 # V0.2
+
+Turns out I am storing fitnesses not by integers, so its making these logs impossible.
+
+So end of first huge run, got through 11 generations. Cancelling it because Tarnished just wants to keep skating off the cliff.
+
+He is still yeeting himself. Going to up that penalty a ton.
+
+# V0.3
+
+Turned down the enticingness of the black void pits. Gave linear fitness points for each point of damage that
+Tarnished deals to margit. Need to tune down the connectability of Margit so he doesnt just
+sit there at his spawn spamming blades. Havent seen him throw a single dagger yet...

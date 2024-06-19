@@ -173,8 +173,8 @@ def main(tarnished_net, margit_net) -> tuple[int]:
     finally:
         # Record our game state
         last_state = game_result["game_states"][-1]
-        game_result["tarnished_fitness"] = get_tarnished_fitness(game_result)
-        game_result["margit_fitness"] = get_margit_fitness(game_result)
+        game_result["tarnished_fitness"] = int(get_tarnished_fitness(game_result))
+        game_result["margit_fitness"] = int(get_margit_fitness(game_result))
 
         file_name = f"{dt.datetime.now().time()}"
         file_name += f"-{game_result['tarnished_fitness']}"
@@ -387,11 +387,13 @@ def get_tarnished_fitness(result):
     fitness = 0
 
     # Reward for damaging % more the enemy than you got damaged
-    tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
-    margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
-    diff = tarnished_percent - margit_percent
-    if diff > 0:
-        fitness += diff * 5
+    # tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
+    # margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
+    # diff = tarnished_percent - margit_percent
+    # if diff > 0:
+    #     fitness += diff * 10
+    margit_missing_health = last_state["margit"]["state"]["max_health"] - last_state["margit"]["state"]["health"]
+    fitness += margit_missing_health * 5
 
     if result["winner"] == "tarnished":
         # Major fitness points, this is very hard
@@ -408,7 +410,7 @@ def get_tarnished_fitness(result):
 
     if "fall" in result["notes"]:
         # Don't fall into pits
-        fitness -= 5
+        fitness -= 150
     
     return fitness
 
