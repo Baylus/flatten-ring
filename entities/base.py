@@ -36,6 +36,7 @@ class Entity():
             else:
                 # We still have our current action, but we finished it.
                 self.current_action = None
+                self.time_left_in_action = 0 # Make sure its reset properly
                 return False
         return False
     
