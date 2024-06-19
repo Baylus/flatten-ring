@@ -39,6 +39,12 @@ population_margit = neat.Population(margit_neat_config)
 
 # Define the fitness function
 def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
+    print(type(genomes_tarnished))
+    print(type(genomes_margit))
+    if type(genomes_tarnished) == dict:
+        genomes_tarnished = list(genomes_tarnished.items())
+    if type(genomes_margit) == dict:
+        genomes_margit = list(genomes_margit.items())
     for (genome_id_player, genome_tarnished), (genome_id_enemy, genome_margit) in zip(genomes_tarnished, genomes_margit):
         # Create separate neural networks for player and enemy
         player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
@@ -201,9 +207,10 @@ def get_tarnished_actions(net, gamestate) -> list[Actions]:
         margit_state["x"],
         margit_state["y"],
         margit_state["angle"],
-        margit_state["current_action"],
+        margit_state["current_action"] or -1,
         margit_state["time_in_action"],
     )
+    print(inputs)
 
     # Now get the recommended outputs
     outputs = net.activate(inputs)
@@ -255,7 +262,7 @@ def get_margit_actions(net, gamestate) -> list[Actions]:
         tarnished_state["x"],
         tarnished_state["y"],
         tarnished_state["angle"],
-        tarnished_state["current_action"],
+        tarnished_state["current_action"] or -1,
         tarnished_state["time_in_action"],
     )
 
@@ -354,15 +361,19 @@ def get_actions(inputs) -> list[int]:
 
 ####### Fitness ############
 
-def get_tarnished_fitness(state):
+def get_tarnished_fitness(result):
     return 0
 
-def get_margit_fitness(state):
+def get_margit_fitness(result):
     return 0
 
 
 if __name__ == "__main__":
     # Run NEAT for player and enemy separately
+    
+    # print(type(genomes))
+    print(type(population_margit.population))
+
     winner_player = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=50)
     winner_enemy = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=50)
 

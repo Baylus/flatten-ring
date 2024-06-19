@@ -1,23 +1,16 @@
 [NEAT]
 pop_size               = 150
 fitness_criterion      = max
-
-# Stagnation parameters
 fitness_threshold      = 300.0
 reset_on_extinction    = False
 
 [DefaultGenome]
-# Node activation options
 activation_default      = tanh
 activation_mutate_rate  = 0.1
 activation_options      = tanh sigmoid relu
-
-# Aggregation options
 aggregation_default     = sum
 aggregation_mutate_rate = 0.0
 aggregation_options     = sum
-
-# Node bias options
 bias_init_mean          = 0.0
 bias_init_stdev         = 1.0
 bias_max_value          = 30.0
@@ -25,31 +18,30 @@ bias_min_value          = -30.0
 bias_mutate_power       = 0.5
 bias_mutate_rate        = 0.7
 bias_replace_rate       = 0.1
-
-# Genome compatibility options
 compatibility_disjoint_coefficient = 1.0
 compatibility_weight_coefficient   = 0.5
-
-# Connection weight options
 conn_add_prob           = 0.5
 conn_delete_prob        = 0.5
 enabled_default         = True
 enabled_mutate_rate     = 0.01
 feed_forward            = True
 initial_connection      = full_nodirect
-
-# Node options
+node_add_prob           = 0.2
+node_delete_prob        = 0.2
 num_hidden              = 0
 num_inputs              = 8
 num_outputs             = 8
-node_add_prob           = 0.2
-node_delete_prob        = 0.05
-
-# Connection weight mutation options
+response_init_mean      = 0.0
+response_init_stdev     = 1.0
+response_max_value      = 30.0
+response_min_value      = -30.0
+response_mutate_power   = 0.5
+response_mutate_rate    = 0.8
+response_replace_rate   = 0.1
 weight_init_mean        = 0.0
 weight_init_stdev       = 1.0
-weight_max_value        = 30
-weight_min_value        = -30
+weight_max_value        = 30.0
+weight_min_value        = -30.0
 weight_mutate_power     = 0.5
 weight_mutate_rate      = 0.8
 weight_replace_rate     = 0.1
