@@ -433,8 +433,8 @@ def get_tarnished_fitness(result):
     # Reward Tarnished for proximity to Margit
     for frame in result["game_states"]:
         # Calculate proximity
-        tx, ty = (frame["tarnished"]["status"]["x"], frame["tarnished"]["status"]["y"])
-        mx, my = (frame["margit"]["status"]["x"], frame["margit"]["status"]["y"])
+        tx, ty = (frame["tarnished"]["state"]["x"], frame["tarnished"]["state"]["y"])
+        mx, my = (frame["margit"]["state"]["x"], frame["margit"]["state"]["y"])
         # dist = math.hypot(x2 - x1, y2 - y1)
         dist = math.hypot(mx - tx, my - ty)
         # Reward for each frame
