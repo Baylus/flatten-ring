@@ -154,8 +154,8 @@ def main(tarnished_net, margit_net):
     finally:
         # Record our game state
         last_state = game_result["game_states"][-1]
-        game_result["tarnished_fitness"] = get_tarnished_fitness(last_state)
-        game_result["margit_fitness"] = get_margit_fitness(last_state)
+        game_result["tarnished_fitness"] = get_tarnished_fitness(game_result)
+        game_result["margit_fitness"] = get_margit_fitness(game_result)
 
         file_name = f"{dt.datetime.now().time()}"
         file_name += f"-{game_result['tarnished_fitness']}"
