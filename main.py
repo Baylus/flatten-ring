@@ -217,6 +217,8 @@ def main(tarnished_net, margit_net) -> tuple[int]:
     
     return game_result["tarnished_fitness"], game_result["margit_fitness"]
 
+### Actions ###
+
 
 TARNISHED_OUTPUT_MAP = [ # ABSOLUTELY CRITICAL THIS IS NOT TOUCHED OR THE NETWORK WILL NEED TO BE RETRAINED
     Actions.PLEFT,
@@ -409,14 +411,29 @@ def get_actions(inputs) -> list[int]:
     return actions
 
 
-####### Fitness ############
+def determine_primary_action(outputs: list[Actions]) -> Actions:
+    """Determine what the primary action that was taken the previous turn.
 
-MIN_DISTANCE_FOR_MAX_POINTS = 100
-MAX_PROXIMITY_POINTS_PER_UPDATE = 2
-TARNISHED_DAMAGE_MULTIPLER = 10
+    e.g. MOVE, TURN, ATTACK
+
+    Attack is the primary action, because the others would not be executed due to action priority.
+
+    Args:
+        outputs (list[Actions]): _description_
+
+    Returns:
+        Actions: _description_
+
+    Details:
+        Will be used when giving fitness points for not spamming the same move twice in a row.
+    """
+    pass
+
+####### Fitness ############
 
 def get_tarnished_fitness(result):
     last_state = result["game_states"][-1]
+    settings = FitnessSettings.Tarnished
     fitness = 0
 
     # Reward for damaging % more the enemy than you got damaged
@@ -426,34 +443,41 @@ def get_tarnished_fitness(result):
     # if diff > 0:
     #     fitness += diff * 10
     margit_missing_health = last_state["margit"]["state"]["max_health"] - last_state["margit"]["state"]["health"]
-    fitness += margit_missing_health * TARNISHED_DAMAGE_MULTIPLER
+    fitness += margit_missing_health * settings.DAMAGE_MULTIPLER
 
-    # Reward Tarnished for moving
-    fitness += last_state["tarnished"]["state"]["moved"] * 0.1
-
-    # Reward Tarnished for proximity to Margit
+    last_distance = None
+    last_dist_traveled = None
     for frame in result["game_states"]:
+        # Reward for moving around
+        curr_moved = last_state["tarnished"]["state"]["moved"]
+        if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
+            fitness += diff * settings.DIST_TRAVELED_MULT
+        
+        # Reward Tarnished for proximity to Margit
         # Calculate proximity
         tx, ty = (frame["tarnished"]["state"]["x"], frame["tarnished"]["state"]["y"])
         mx, my = (frame["margit"]["state"]["x"], frame["margit"]["state"]["y"])
-        # dist = math.hypot(x2 - x1, y2 - y1)
         dist = math.hypot(mx - tx, my - ty)
         # Reward for each frame
-        if dist < MIN_DISTANCE_FOR_MAX_POINTS:
-            fitness += MAX_PROXIMITY_POINTS_PER_UPDATE
+        if dist < settings.MIN_DISTANCE_FOR_MAX_POINTS:
+            fitness += settings.MAX_PROXIMITY_POINTS_PER_UPDATE
         else:
-            fitness += (MAX_PROXIMITY_POINTS_PER_UPDATE * MIN_DISTANCE_FOR_MAX_POINTS) / dist
+            # We are outside of the minimum distance, so scale points given based on how far away from this min distance
+            fitness += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
 
+        last_distance = dist
+        last_dist_traveled = curr_moved
+    
     if result["winner"] == "tarnished":
         # Major fitness points, this is very hard
-        fitness += 300
+        fitness += settings.WIN
     elif result["winner"] == "draw":
         # only slight fitness loss, but I want to encourage them to fight
-        fitness -= 25
+        fitness += settings.DRAW
     else:
         # You lost, but % health will already take a big beating, so slight punishment
         # This avoids stacking loss too much that they are scared to fight at all
-        fitness -= 15
+        fitness += settings.DRAW
     
     fitness += len(result["game_states"]) * 0.1
 
@@ -464,25 +488,29 @@ def get_tarnished_fitness(result):
     return fitness
 
 
-MARGIT_MIN_DISTANCE_FOR_MAX_POINTS = 100
-MARGIT_MAX_PROXIMITY_POINTS_PER_UPDATE = 2
-
 def get_margit_fitness(result):
     last_state = result["game_states"][-1]
+    settings = FitnessSettings.Margit
     fitness = 0
 
-    # Reward Tarnished for proximity to Margit
+    last_dist_traveled = None
     for frame in result["game_states"]:
+        # Reward for moving around
+        curr_moved = last_state["margit"]["state"]["moved"]
+        if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
+            fitness += diff * settings.DIST_TRAVELED_MULT
+
+        # Reward Margit for proximity to Tarnished
         # Calculate proximity
         tx, ty = (frame["tarnished"]["state"]["x"], frame["tarnished"]["state"]["y"])
         mx, my = (frame["margit"]["state"]["x"], frame["margit"]["state"]["y"])
         # dist = math.hypot(x2 - x1, y2 - y1)
         dist = math.hypot(mx - tx, my - ty)
         # Reward for each frame
-        if dist < MARGIT_MIN_DISTANCE_FOR_MAX_POINTS:
-            fitness += MARGIT_MAX_PROXIMITY_POINTS_PER_UPDATE
+        if dist < settings.MIN_DISTANCE_FOR_MAX_POINTS:
+            fitness += settings.MAX_PROXIMITY_POINTS_PER_UPDATE
         else:
-            fitness += (MAX_PROXIMITY_POINTS_PER_UPDATE * MIN_DISTANCE_FOR_MAX_POINTS) / dist
+            fitness += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
     
     # Reward for damaging % more the enemy than you got damaged
     tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
@@ -497,17 +525,13 @@ def get_margit_fitness(result):
 
     if result["winner"] == "tarnished":
         # Major fitness points, Margit should not lose
-        fitness -= 300
+        fitness += settings.LOSS
     elif result["winner"] == "draw":
         # Biggest draw loss on Margit, he should be pressuring Tarnished
-        fitness -= 50
+        fitness += settings.DRAW
     else:
         # Margit's expected victory
-        fitness += 100
-    
-    if "fall" in result["notes"]:
-        # Don't fall into pits
-        fitness -= 5
+        fitness += settings.WIN
     
     return fitness
 
@@ -518,8 +542,8 @@ if __name__ == "__main__":
     # print(type(genomes))
     print(type(population_margit.population))
     try:
-        winner_player = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=50)
-        winner_enemy = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=50)
+        winner_player = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=GENERATIONS)
+        winner_enemy = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=GENERATIONS)
     except Exception as e:
         with open("debug.txt", "w") as f:
             f.write(str(e))

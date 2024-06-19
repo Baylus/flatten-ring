@@ -9,15 +9,15 @@ class Actions(IntEnum):
     PTURNR = auto()
     PDODGE = auto()
     # PKNOCKED = auto() # Player is knocked down
-    PATTACK = auto()
+    PATTACK = auto() # 8
     
     MLEFT = auto() # DO NOT REORGANIZE THIS. THIS IS BEING USED TO SIGNAL THE START OF THE MARGIT ACTIONS
-    MRIGHT = auto()
+    MRIGHT = auto() # 10
     MFORWARD = auto()
     MBACK = auto()
     MTURNR = auto()
     MTURNL = auto()
-    MRETREAT = auto()
+    MRETREAT = auto() # 15
     # Margit Attacks
     MSLASH = auto()
     MREVSLASH = auto()
