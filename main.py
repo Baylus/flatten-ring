@@ -145,11 +145,12 @@ def main(tarnished_net, margit_net):
         game_result["winner"] = "margit"
         # Update the state of the last game tick for tarnished status
         game_result["game_states"][-1]["tarnished"]["state"] = tarnished.get_state()
-    except MargitDied:
+    except MargitDied as e:
         # Update winner
         game_result["winner"] = "tarnished"
         # Update the state of the last game tick for margit status
         game_result["game_states"][-1]["margit"]["state"] = margit.get_state()
+        game_result["notes"] = "Margit died to: " + str(e)
     finally:
         # Record our game state
         last_state = game_result["game_states"][-1]
@@ -362,10 +363,61 @@ def get_actions(inputs) -> list[int]:
 ####### Fitness ############
 
 def get_tarnished_fitness(result):
-    return 0
+    last_state = result["game_states"][-1]
+    fitness = 0
+
+    # Reward for damaging % more the enemy than you got damaged
+    tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
+    margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
+    fitness += (tarnished_percent - margit_percent) * 2 # Slight importance
+
+    if result["winner"] == "tarnished":
+        # Major fitness points, this is very hard
+        fitness += 300
+    elif result["winner"] == "draw":
+        # only slight fitness loss, but I want to encourage them to fight
+        fitness -= 25
+    else:
+        # You lost, but % health will already take a big beating, so slight punishment
+        # This avoids stacking loss too much that they are scared to fight at all
+        fitness -= 15
+    
+    if "fall" in result["notes"]:
+        # Don't fall into pits
+        fitness -= 5
+    
+    return fitness
 
 def get_margit_fitness(result):
-    return 0
+    last_state = result["game_states"][-1]
+    fitness = 0
+
+    # Reward for damaging % more the enemy than you got damaged
+    tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
+    margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
+    diff = (margit_percent - tarnished_percent)
+    # Now check which direction it is in, and weight it accordingly
+    if diff < 0:
+        # NOTE: += because diff is already negative
+        fitness += diff * 2 # Heavier losses if we lose more than if we gain more
+    else:
+        fitness += diff
+
+    if result["winner"] == "tarnished":
+        # Major fitness points, Margit should not lose
+        fitness -= 300
+    elif result["winner"] == "draw":
+        # Biggest draw loss on Margit, he should be pressuring Tarnished
+        fitness -= 50
+    else:
+        # Margit's expected victory
+        fitness += 100
+    
+    if "fall" in result["notes"]:
+        # Don't fall into pits
+        fitness -= 5
+    
+    return fitness
 
 
 if __name__ == "__main__":
