@@ -517,10 +517,12 @@ if __name__ == "__main__":
     
     # print(type(genomes))
     print(type(population_margit.population))
-
-    winner_player = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=50)
-    winner_enemy = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=50)
-
+    try:
+        winner_player = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=50)
+        winner_enemy = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=50)
+    except Exception as e:
+        with open("debug.txt", "w") as f:
+            f.write(str(e))
     
 
 pygame.quit()
