@@ -20,3 +20,20 @@ He is still yeeting himself. Going to up that penalty a ton.
 Turned down the enticingness of the black void pits. Gave linear fitness points for each point of damage that
 Tarnished deals to margit. Need to tune down the connectability of Margit so he doesnt just
 sit there at his spawn spamming blades. Havent seen him throw a single dagger yet...
+
+I need to give tarnished (and maybe margit as well) a lot of points for being close to the other. And possible some points for moving around, to de-incentivize just standing outside of melee range and swiping.
+
+Some interesting and at time exciting behavior, devolved down to staring matches while swinging meat.
+
+# V0.4
+
+## Changes
+
+- Incentivized Tarnished to move
+    - Giving him 0.5 points every update he chooses to move
+- Invectivized his proximity to margit (Just lineraly for now, but really need to do it logarithmically)
+    - Initially choosing a maximum of 2 points per update to be within 100 units of Margit, will definitely have to tune it from here.
+
+### Changes to simulation
+
+- Reduced duration down to 300 from 1000

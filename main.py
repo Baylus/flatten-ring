@@ -3,6 +3,7 @@ import json
 import pygame
 import sys
 import string
+import math
 import neat
 
 from entities.tarnished import Tarnished
@@ -13,6 +14,10 @@ from entities.exceptions import *
 
 from config.settings import *
 
+# from utilities import draw_text
+
+
+pygame.font.init()
 
 ######## DELETE GAME STATES ############
 from pathlib import Path
@@ -46,8 +51,16 @@ margit_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduc
 population_tarnished = neat.Population(tarnished_neat_config)
 population_margit = neat.Population(margit_neat_config)
 
+curr_pop = 0
+curr_gen = 0
+
 # Define the fitness function
 def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
+    global curr_gen
+    global curr_pop
+    curr_pop = 0
+    curr_gen += 1
+
     print(type(genomes_tarnished))
     print(type(genomes_margit))
     if type(genomes_tarnished) == dict:
@@ -62,6 +75,8 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         genome.fitness = 0
 
     for (genome_id_player, genome_tarnished), (genome_id_enemy, genome_margit) in zip(genomes_tarnished, genomes_margit):
+        
+
         # Create separate neural networks for player and enemy
         player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
         enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
@@ -76,11 +91,22 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         assert genome_tarnished.fitness is not None
         assert genome_margit.fitness is not None
 
+def draw_text(surface, text, x, y, font_size=20, color=(255, 255, 255)):
+    font = pygame.font.SysFont(None, font_size)
+    text_surface = font.render(text, True, color)
+    surface.blit(text_surface, (x, y))
+
 def draw():
+    global curr_gen
+    global curr_pop
     WIN.blit(BG, (0,0))
 
     tarnished.draw(WIN)
     margit.draw(WIN)
+
+    # Draw the name below the health bar
+    draw_text(WIN, "Generation: " + str(curr_gen), 200, 500, font_size=50, color=(255, 0, 0))
+    draw_text(WIN, "Population: " + str(curr_pop), 200, 600, font_size=50, color=(255, 0, 0))
 
     pygame.display.update()
 
@@ -99,6 +125,9 @@ def main(tarnished_net, margit_net) -> tuple[int]:
     """
     global tarnished
     global margit
+    global curr_pop
+    curr_pop += 1
+
     # Reset the npcs
     tarnished = Tarnished()
     margit = Margit()
@@ -382,6 +411,9 @@ def get_actions(inputs) -> list[int]:
 
 ####### Fitness ############
 
+MIN_DISTANCE_FOR_MAX_POINTS = 100
+MAX_PROXIMITY_POINTS_PER_UPDATE = 2
+
 def get_tarnished_fitness(result):
     last_state = result["game_states"][-1]
     fitness = 0
@@ -394,6 +426,22 @@ def get_tarnished_fitness(result):
     #     fitness += diff * 10
     margit_missing_health = last_state["margit"]["state"]["max_health"] - last_state["margit"]["state"]["health"]
     fitness += margit_missing_health * 5
+
+    # Reward Tarnished for moving
+    fitness += last_state["tarnished"]["state"]["moved"] * 0.1
+
+    # Reward Tarnished for proximity to Margit
+    for frame in result["game_states"]:
+        # Calculate proximity
+        tx, ty = (frame["tarnished"]["status"]["x"], frame["tarnished"]["status"]["y"])
+        mx, my = (frame["margit"]["status"]["x"], frame["margit"]["status"]["y"])
+        # dist = math.hypot(x2 - x1, y2 - y1)
+        dist = math.hypot(mx - tx, my - ty)
+        # Reward for each frame
+        if dist < MIN_DISTANCE_FOR_MAX_POINTS:
+            fitness += MAX_PROXIMITY_POINTS_PER_UPDATE
+        else:
+            fitness += (MAX_PROXIMITY_POINTS_PER_UPDATE * MIN_DISTANCE_FOR_MAX_POINTS) / dist
 
     if result["winner"] == "tarnished":
         # Major fitness points, this is very hard

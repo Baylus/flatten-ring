@@ -24,6 +24,9 @@ class Entity():
 
     hitbox_coefficient = 1
 
+    # Statistics
+    moved = 0
+
     def __init__(self):
         super().__init__()
         # self.pygame_obj = pygame.Rect(self.x, self.y, self.width, self.height)
@@ -91,6 +94,8 @@ class Entity():
         print(f"Old position {(self.x, self.y)}.... New pos {new_pos}")
         self.x, self.y = new_pos
 
+        self.moved += self.velocity
+
         return move_ang
 
 
@@ -111,6 +116,7 @@ class Entity():
         status["current_action"] = self.current_action
         status["time_in_action"] = self.time_in_action
         status["angle"] = self.angle
+        status["moved"] = self.moved
 
         return status
 
