@@ -37,3 +37,15 @@ Some interesting and at time exciting behavior, devolved down to staring matches
 ### Changes to simulation
 
 - Reduced duration down to 300 from 1000
+
+## Thoughts
+
+Try to incentivize movements that yield in attacks.
+
+# V0.5
+
+## Changes
+
+- Gave incentives to Margit to approach Tarnished
+- Doubling population (from 150 to 300)
+- Increasing generations from 50 to 150

@@ -413,6 +413,7 @@ def get_actions(inputs) -> list[int]:
 
 MIN_DISTANCE_FOR_MAX_POINTS = 100
 MAX_PROXIMITY_POINTS_PER_UPDATE = 2
+TARNISHED_DAMAGE_MULTIPLER = 10
 
 def get_tarnished_fitness(result):
     last_state = result["game_states"][-1]
@@ -425,7 +426,7 @@ def get_tarnished_fitness(result):
     # if diff > 0:
     #     fitness += diff * 10
     margit_missing_health = last_state["margit"]["state"]["max_health"] - last_state["margit"]["state"]["health"]
-    fitness += margit_missing_health * 5
+    fitness += margit_missing_health * TARNISHED_DAMAGE_MULTIPLER
 
     # Reward Tarnished for moving
     fitness += last_state["tarnished"]["state"]["moved"] * 0.1
@@ -462,10 +463,27 @@ def get_tarnished_fitness(result):
     
     return fitness
 
+
+MARGIT_MIN_DISTANCE_FOR_MAX_POINTS = 100
+MARGIT_MAX_PROXIMITY_POINTS_PER_UPDATE = 2
+
 def get_margit_fitness(result):
     last_state = result["game_states"][-1]
     fitness = 0
 
+    # Reward Tarnished for proximity to Margit
+    for frame in result["game_states"]:
+        # Calculate proximity
+        tx, ty = (frame["tarnished"]["state"]["x"], frame["tarnished"]["state"]["y"])
+        mx, my = (frame["margit"]["state"]["x"], frame["margit"]["state"]["y"])
+        # dist = math.hypot(x2 - x1, y2 - y1)
+        dist = math.hypot(mx - tx, my - ty)
+        # Reward for each frame
+        if dist < MARGIT_MIN_DISTANCE_FOR_MAX_POINTS:
+            fitness += MARGIT_MAX_PROXIMITY_POINTS_PER_UPDATE
+        else:
+            fitness += (MAX_PROXIMITY_POINTS_PER_UPDATE * MIN_DISTANCE_FOR_MAX_POINTS) / dist
+    
     # Reward for damaging % more the enemy than you got damaged
     tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
     margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
