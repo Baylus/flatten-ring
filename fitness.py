@@ -278,7 +278,7 @@ def get_margit_fitness(result):
                 fitness += diff * settings.DIST_TRAVELED_MULT
 
         ### Penalty for choosing same actions as the last update
-        curr_action = get_primary_action(last_state["tarnished"]["actions"])
+        curr_action = get_primary_action(last_state["margit"]["actions"])
         if not curr_action:
             # We really don't want them not moving
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY * 2

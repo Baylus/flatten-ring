@@ -69,7 +69,7 @@ def get_primary_action(action_list: list[Actions]) -> Actions:
         Actions: _description_
     """
     if not action_list:
-        print("We were given a bad list with no actions")
+        # print("We were given a bad list with no actions")
         return None
 
     for action in TARNISHED_ACTION_PRIORITY:
