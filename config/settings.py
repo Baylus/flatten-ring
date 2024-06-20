@@ -11,7 +11,7 @@ DEFAULT_HEALTH_BAR_PADDING = 25
 MAX_UPDATES_PER_GAME = 1000
 
 GAME_VERSION = "V0.1"
-FITNESS_VERSION = "V0.6"
+FITNESS_VERSION = "V0.7"
 
 # Load entity images
 TARNISHED_IMAGE = pygame.image.load("assets/tarnished.png")
@@ -28,8 +28,9 @@ class FitnessSettings:
     class Tarnished:
         MIN_DISTANCE_FOR_MAX_POINTS = 100
         MAX_PROXIMITY_POINTS_PER_UPDATE = 2
-        DAMAGE_MULTIPLER = 10
-        DIST_TRAVELED_MULT = 0.05 # Raw distance traveled
+        DAMAGE_MULTIPLER = 15
+        DIST_TRAVELED_MULT = 0.2 # Raw distance traveled
+        NEW_ACTION_BONUS = 3
 
         # Major fitness points, this is very hard
         WIN = 300
@@ -43,8 +44,9 @@ class FitnessSettings:
     class Margit:
         MIN_DISTANCE_FOR_MAX_POINTS = 100
         MAX_PROXIMITY_POINTS_PER_UPDATE = 2
-        DAMAGE_MULTIPLIER = 10
-        DIST_TRAVELED_MULT = 0.05 # Raw distance traveled
+        DAMAGE_MULTIPLIER = 15
+        DIST_TRAVELED_MULT = 0.2 # Raw distance traveled
+        NEW_ACTION_BONUS = 3
 
         # Margit's expected victory
         WIN = 100

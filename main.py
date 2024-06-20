@@ -261,8 +261,6 @@ def get_tarnished_actions(net, gamestate) -> list[Actions]:
         margit_state["current_action"] or -1,
         margit_state["time_in_action"],
     )
-    # print(inputs)
-
     # Now get the recommended outputs
     outputs = net.activate(inputs)
 
@@ -270,16 +268,17 @@ def get_tarnished_actions(net, gamestate) -> list[Actions]:
     # Go through every element in the output, and if it exists, then place the corresponding
     # action into the list.
     actions = [TARNISHED_OUTPUT_MAP[i] for i in range(len(outputs)) if outputs[i]]
-    print(actions)
-    return actions
+    # print(actions)
+    
+    return prune_actions(actions)
 
 MARGIT_OUTPUT_MAP = [ # ABSOLUTELY CRITICAL THIS IS NOT TOUCHED OR THE NETWORK WILL NEED TO BE RETRAINED
     Actions.MLEFT,
     Actions.MRIGHT,
     Actions.MFORWARD,
     Actions.MBACK,
+    Actions.MTURNL,     # NOTE!!!!!!!!!!!!!!! I moved L and R here, because the order was wrong, despite the warning. I think it should be fine.
     Actions.MTURNR,
-    Actions.MTURNL,
     Actions.MRETREAT,
     Actions.MSLASH,
     Actions.MREVSLASH,
@@ -326,7 +325,43 @@ def get_margit_actions(net, gamestate) -> list[Actions]:
     actions = [MARGIT_OUTPUT_MAP[i] for i in range(len(outputs)) if outputs[i]]
 
     print(actions)
+    return prune_actions(actions)
+
+def prune_actions(actions: list[Actions]):
+    """Take a list of actions and prune out the actions that would cancel each other out, meaning they wont be used.
+
+    Mainly prunes out the rights and lefts in the inputs.
+
+    Args:
+        actions (_type_): _description_
+    """
+    # Left/right
+    a = Actions
+    if a.PLEFT in actions and a.PRIGHT in actions:
+        actions.remove(a.PLEFT)
+        actions.remove(a.PRIGHT)
+    if a.MLEFT in actions and a.MRIGHT in actions:
+        actions.remove(a.MLEFT)
+        actions.remove(a.MRIGHT)
+    
+    # Forward/Back
+    if a.PFORWARD in actions and a.PBACK in actions:
+        actions.remove(a.PFORWARD)
+        actions.remove(a.PBACK)
+    if a.MFORWARD in actions and a.MBACK in actions:
+        actions.remove(a.MFORWARD)
+        actions.remove(a.MBACK)
+
+    # Turning
+    if a.PTURNL in actions and a.PTURNR in actions:
+        actions.remove(a.PTURNL)
+        actions.remove(a.PTURNR)
+    if a.MTURNL in actions and a.MTURNR in actions:
+        actions.remove(a.MTURNL)
+        actions.remove(a.MTURNR)
+
     return actions
+
 
 def get_actions(inputs) -> list[int]:
     """Create list of actions that should be taken based on the inputs
@@ -447,16 +482,13 @@ def get_tarnished_fitness(result):
 
     last_distance = None
     last_dist_traveled = None
+    last_actions = None
     for frame in result["game_states"]:
-        # Reward for moving around
-        curr_moved = last_state["tarnished"]["state"]["moved"]
-        if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
-            fitness += diff * settings.DIST_TRAVELED_MULT
-        
-        # Reward Tarnished for proximity to Margit
+        ### Reward Tarnished for proximity to Margit
         # Calculate proximity
         tx, ty = (frame["tarnished"]["state"]["x"], frame["tarnished"]["state"]["y"])
         mx, my = (frame["margit"]["state"]["x"], frame["margit"]["state"]["y"])
+
         dist = math.hypot(mx - tx, my - ty)
         # Reward for each frame
         if dist < settings.MIN_DISTANCE_FOR_MAX_POINTS:
@@ -465,6 +497,20 @@ def get_tarnished_fitness(result):
             # We are outside of the minimum distance, so scale points given based on how far away from this min distance
             fitness += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
 
+        ### Reward for moving around
+        curr_moved = last_state["tarnished"]["state"]["moved"]
+        if last_distance and last_distance > dist:
+            # Last update we closed some distance to the enemy, good deadpool
+            if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
+                fitness += diff * settings.DIST_TRAVELED_MULT
+
+        ### Reward for choosing different actions than the last frame
+        curr_actions = frame["tarnished"]["actions"]
+        if last_actions:
+            if last_actions != curr_actions:
+                fitness += settings.NEW_ACTION_BONUS
+
+        last_actions = curr_actions
         last_distance = dist
         last_dist_traveled = curr_moved
     
@@ -493,6 +539,8 @@ def get_margit_fitness(result):
     settings = FitnessSettings.Margit
     fitness = 0
 
+    last_distance = None
+    last_actions = None
     last_dist_traveled = None
     for frame in result["game_states"]:
         # Reward for moving around
@@ -504,13 +552,30 @@ def get_margit_fitness(result):
         # Calculate proximity
         tx, ty = (frame["tarnished"]["state"]["x"], frame["tarnished"]["state"]["y"])
         mx, my = (frame["margit"]["state"]["x"], frame["margit"]["state"]["y"])
-        # dist = math.hypot(x2 - x1, y2 - y1)
+
         dist = math.hypot(mx - tx, my - ty)
         # Reward for each frame
         if dist < settings.MIN_DISTANCE_FOR_MAX_POINTS:
             fitness += settings.MAX_PROXIMITY_POINTS_PER_UPDATE
         else:
             fitness += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
+
+        ### Reward for moving around
+        curr_moved = last_state["margit"]["state"]["moved"]
+        if last_distance and last_distance > dist:
+            # Last update we closed some distance to the enemy, good deadpool
+            if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
+                fitness += diff * settings.DIST_TRAVELED_MULT
+
+        ### Reward for choosing different actions than the last frame
+        curr_actions = frame["margit"]["actions"]
+        if last_actions:
+            if last_actions != curr_actions:
+                fitness += settings.NEW_ACTION_BONUS
+        
+        last_distance = dist
+        last_actions = curr_actions
+        last_dist_traveled = curr_moved
     
     # Reward for damaging % more the enemy than you got damaged
     tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]

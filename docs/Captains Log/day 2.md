@@ -39,3 +39,24 @@ I gave the details to ChatGPT to help explain some changes I can make to my conf
 - node_delete_prob        = 0.2 -> 0.1  # Reduced to prevent excessive node removal
 - weight_mutate_power     = 0.5 -> 0.8  # Increased to encourage meaningful changes
 - weight_mutate_rate      = 0.8 -> 0.6  # Balanced for exploration
+
+## Notes
+
+They are changing their behavior somewhat, which is a good sign. Tarnished seems to be doing a better job with getting closer to margit, and has even shown signs that he can alternate actions and not just hold down the same buttons to simulate complex movement.
+
+Thinking itd be best at this point to let it go a little longer to see if letting things run their course this long could be beneficial, and then plan on changing the movement reward to only happen if they were moving towards the other.
+
+# V0.7
+
+## Changes
+
+- Rewarding them for choosing a different move than the previous update.
+- Increasing the points of dealing damage to each other again.
+- Upping the reward from moving by a lot more, but it only rewards when they are moving closer to each other
+
+
+### Misc
+
+I realized that I was not pruning the outputs of the natworks for the duplicate bad actions, like holding left and right at the same time, so I am fixing that so that it no longer duplicates it, to lead to unexpected behavior
+
+- Pruning out the actions before I am storing it in the game state, so there will be no record of them
