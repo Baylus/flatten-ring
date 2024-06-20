@@ -110,7 +110,7 @@ class Margit(Entity):
                 self.time_left_in_action -= 1
                 self.lead_time_before_action -= 1
                 if self.lead_time_before_action == 0:
-                    print("We are done with lead time for margit attack")
+                    # print("We are done with lead time for margit attack")
                     # We have to start the attacks
                     if self.current_action == Actions.MSLASH:
                         # Doing regular slash attack
@@ -133,7 +133,7 @@ class Margit(Entity):
             moves = [Actions.MSLASH, Actions.MREVSLASH, Actions.MDAGGERS]
             moves = [x for x in actions if x in moves]
             if moves:
-                print("Starting Margit attack")
+                # print("Starting Margit attack")
                 # Start a swing
                 if Actions.MSLASH in moves:
                     self.current_action = Actions.MSLASH
@@ -168,7 +168,6 @@ class Margit(Entity):
             moves = [x for x in actions if x in moves]
             if len(moves) == 1:
                 # We have to turn
-                print(f"We have to turn: {moves[0]}")
                 if moves[0] == Actions.MTURNL:
                     self.angle -= self.turn_speed
                 else:
@@ -178,7 +177,7 @@ class Margit(Entity):
 
     def update(self):
         if self.current_action and self.lead_time_before_action < 1:
-            print("we are processing updates on margits attacks")
+            # print("we are processing updates on margits attacks")
             # We don't have to wait any longer before our attack can start
             if self.current_action == Actions.MSLASH:
                 self.slash.update()

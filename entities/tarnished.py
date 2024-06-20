@@ -126,7 +126,6 @@ class Tarnished(Entity):
                     self.angle -= self.turn_speed
                 else:
                     self.angle += self.turn_speed
-                # print(f"We have to turn: {moves[0]}, new angle is {self.angle}")
         finally:
             # No matter what, we are ensuring that we did not move into walls
             collide_walls()

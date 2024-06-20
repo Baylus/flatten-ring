@@ -1,10 +1,16 @@
 import datetime as dt
 import json
-import pygame
-import sys
-import string
 import math
 import neat
+import os
+from pathlib import Path
+import pygame
+import shutil
+import string
+import sys
+
+
+from fitness import get_tarnished_fitness, get_margit_fitness
 
 from entities.tarnished import Tarnished
 from entities.margit import Margit
@@ -20,9 +26,19 @@ from config.settings import *
 pygame.font.init()
 
 ######## DELETE GAME STATES ############
-from pathlib import Path
 
-[f.unlink() for f in Path("game_states").glob("*") if f.is_file()] 
+folder = '/path/to/folder'
+for filename in os.listdir(folder):
+    file_path = os.path.join(folder, filename)
+    try:
+        if os.path.isfile(file_path) or os.path.islink(file_path):
+            os.unlink(file_path)
+        elif os.path.isdir(file_path):
+            shutil.rmtree(file_path)
+    except Exception as e:
+        print('Failed to delete %s. Reason: %s' % (file_path, e))
+
+# [f.unlink() for f in Path(f"{GAMESTATES_PATH}").glob("*")] 
 
 ##################
 
@@ -60,6 +76,7 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
     global curr_pop
     curr_pop = 0
     curr_gen += 1
+    Path(f"{GAMESTATES_PATH}/gen_{curr_gen}").mkdir(parents=True, exist_ok=True)
 
     print(type(genomes_tarnished))
     print(type(genomes_margit))
@@ -126,6 +143,7 @@ def main(tarnished_net, margit_net) -> tuple[int]:
     global tarnished
     global margit
     global curr_pop
+    global curr_gen
     curr_pop += 1
 
     # Reset the npcs
@@ -205,14 +223,15 @@ def main(tarnished_net, margit_net) -> tuple[int]:
         game_result["tarnished_fitness"] = int(get_tarnished_fitness(game_result))
         game_result["margit_fitness"] = int(get_margit_fitness(game_result))
 
-        file_name = f"{dt.datetime.now().time()}"
-        file_name += f"-{game_result['tarnished_fitness']}"
-        file_name += f"-{game_result['margit_fitness']}"
-        file_name += f"-{game_result['fitness_version']}"
-        file_name += f"-{game_result['game_version']}"
+        # file_name = f"{dt.datetime.now().time()}"
+        # file_name += f"-{game_result['tarnished_fitness']}"
+        # file_name += f"-{game_result['margit_fitness']}"
+        # file_name += f"-{game_result['fitness_version']}"
+        # file_name += f"-{game_result['game_version']}"
+        file_name = str(curr_pop)
         file_name += ".json"
         file_name = file_name.replace(":", "_")
-        with open(f"game_states/{file_name}", 'w') as f:
+        with open(f"{GAMESTATES_PATH}/gen_{curr_gen}/{file_name}", 'w') as f:
             json.dump(game_result, f, indent=4)
     
     return game_result["tarnished_fitness"], game_result["margit_fitness"]
@@ -324,7 +343,7 @@ def get_margit_actions(net, gamestate) -> list[Actions]:
     # action into the list.
     actions = [MARGIT_OUTPUT_MAP[i] for i in range(len(outputs)) if outputs[i]]
 
-    print(actions)
+    # print(actions)
     return prune_actions(actions)
 
 def prune_actions(actions: list[Actions]):
@@ -446,169 +465,52 @@ def get_actions(inputs) -> list[int]:
     return actions
 
 
-def determine_primary_action(outputs: list[Actions]) -> Actions:
-    """Determine what the primary action that was taken the previous turn.
+# To fix it from doing n-1 checkpoint numbers
+class OneIndexedCheckpointer(neat.Checkpointer):
+    def __init__(self, generation_interval=1, time_interval_seconds=None, filename_prefix="neat-checkpoint-"):
+        super().__init__(generation_interval, time_interval_seconds, filename_prefix)
 
-    e.g. MOVE, TURN, ATTACK
-
-    Attack is the primary action, because the others would not be executed due to action priority.
-
-    Args:
-        outputs (list[Actions]): _description_
-
-    Returns:
-        Actions: _description_
-
-    Details:
-        Will be used when giving fitness points for not spamming the same move twice in a row.
-    """
-    pass
-
-####### Fitness ############
-
-def get_tarnished_fitness(result):
-    last_state = result["game_states"][-1]
-    settings = FitnessSettings.Tarnished
-    fitness = 0
-
-    # Reward for damaging % more the enemy than you got damaged
-    # tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
-    # margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
-    # diff = tarnished_percent - margit_percent
-    # if diff > 0:
-    #     fitness += diff * 10
-    margit_missing_health = last_state["margit"]["state"]["max_health"] - last_state["margit"]["state"]["health"]
-    fitness += margit_missing_health * settings.DAMAGE_MULTIPLER
-
-    last_distance = None
-    last_dist_traveled = None
-    last_actions = None
-    for frame in result["game_states"]:
-        ### Reward Tarnished for proximity to Margit
-        # Calculate proximity
-        tx, ty = (frame["tarnished"]["state"]["x"], frame["tarnished"]["state"]["y"])
-        mx, my = (frame["margit"]["state"]["x"], frame["margit"]["state"]["y"])
-
-        dist = math.hypot(mx - tx, my - ty)
-        # Reward for each frame
-        if dist < settings.MIN_DISTANCE_FOR_MAX_POINTS:
-            fitness += settings.MAX_PROXIMITY_POINTS_PER_UPDATE
-        else:
-            # We are outside of the minimum distance, so scale points given based on how far away from this min distance
-            fitness += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
-
-        ### Reward for moving around
-        curr_moved = last_state["tarnished"]["state"]["moved"]
-        if last_distance and last_distance > dist:
-            # Last update we closed some distance to the enemy, good deadpool
-            if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
-                fitness += diff * settings.DIST_TRAVELED_MULT
-
-        ### Reward for choosing different actions than the last frame
-        curr_actions = frame["tarnished"]["actions"]
-        if last_actions:
-            if last_actions != curr_actions:
-                fitness += settings.NEW_ACTION_BONUS
-
-        last_actions = curr_actions
-        last_distance = dist
-        last_dist_traveled = curr_moved
-    
-    if result["winner"] == "tarnished":
-        # Major fitness points, this is very hard
-        fitness += settings.WIN
-    elif result["winner"] == "draw":
-        # only slight fitness loss, but I want to encourage them to fight
-        fitness += settings.DRAW
-    else:
-        # You lost, but % health will already take a big beating, so slight punishment
-        # This avoids stacking loss too much that they are scared to fight at all
-        fitness += settings.DRAW
-    
-    fitness += len(result["game_states"]) * 0.1
-
-    if "fall" in result["notes"]:
-        # Don't fall into pits
-        fitness -= 150
-    
-    return fitness
-
-
-def get_margit_fitness(result):
-    last_state = result["game_states"][-1]
-    settings = FitnessSettings.Margit
-    fitness = 0
-
-    last_distance = None
-    last_actions = None
-    last_dist_traveled = None
-    for frame in result["game_states"]:
-        # Reward for moving around
-        curr_moved = last_state["margit"]["state"]["moved"]
-        if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
-            fitness += diff * settings.DIST_TRAVELED_MULT
-
-        # Reward Margit for proximity to Tarnished
-        # Calculate proximity
-        tx, ty = (frame["tarnished"]["state"]["x"], frame["tarnished"]["state"]["y"])
-        mx, my = (frame["margit"]["state"]["x"], frame["margit"]["state"]["y"])
-
-        dist = math.hypot(mx - tx, my - ty)
-        # Reward for each frame
-        if dist < settings.MIN_DISTANCE_FOR_MAX_POINTS:
-            fitness += settings.MAX_PROXIMITY_POINTS_PER_UPDATE
-        else:
-            fitness += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
-
-        ### Reward for moving around
-        curr_moved = last_state["margit"]["state"]["moved"]
-        if last_distance and last_distance > dist:
-            # Last update we closed some distance to the enemy, good deadpool
-            if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
-                fitness += diff * settings.DIST_TRAVELED_MULT
-
-        ### Reward for choosing different actions than the last frame
-        curr_actions = frame["margit"]["actions"]
-        if last_actions:
-            if last_actions != curr_actions:
-                fitness += settings.NEW_ACTION_BONUS
-        
-        last_distance = dist
-        last_actions = curr_actions
-        last_dist_traveled = curr_moved
-    
-    # Reward for damaging % more the enemy than you got damaged
-    tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
-    margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
-    diff = (margit_percent - tarnished_percent)
-    # Now check which direction it is in, and weight it accordingly
-    if diff < 0:
-        # NOTE: += because diff is already negative
-        fitness += diff * 2 # Heavier losses if we lose more than if we gain more
-    else:
-        fitness += diff
-
-    if result["winner"] == "tarnished":
-        # Major fitness points, Margit should not lose
-        fitness += settings.LOSS
-    elif result["winner"] == "draw":
-        # Biggest draw loss on Margit, he should be pressuring Tarnished
-        fitness += settings.DRAW
-    else:
-        # Margit's expected victory
-        fitness += settings.WIN
-    
-    return fitness
+    def save_checkpoint(self, population, filename_prefix=None):
+        # Increment the generation number by 1 to make it 1-indexed
+        current_generation = population.generation + 1
+        filename_prefix = filename_prefix or self.filename_prefix
+        filename = f"{filename_prefix}{current_generation}"
+        self.save_checkpoint_to_filename(population, filename)
 
 
 if __name__ == "__main__":
-    # Run NEAT for player and enemy separately
+    # Add reporters, including a Checkpointer
+    if CACHE_CHECKPOINTS:
+        # Setup checkpoints
+        curr_fitness_checkpoints = f"{CHECKPOINTS_PATH}/{FITNESS_VERSION}"
+        Path(curr_fitness_checkpoints).mkdir(parents=True, exist_ok=True)
+        # Find the run that we need to use
+        runs = os.listdir(curr_fitness_checkpoints)
+        i = 1
+        for i in range(1, 10):
+            if f"run_{i}" not in runs:
+                break
+        else:
+            # If this happens then I have been running too many runs and I need to think of changing the fitnesss function
+            raise Exception("Youve been trying this fitness function too many times. Fix the problem.")
+        
+        this_runs_checkpoints = f"{curr_fitness_checkpoints}/run_{i}"
+        Path(this_runs_checkpoints).mkdir(parents=True, exist_ok=True)
+
+        population_tarnished.add_reporter(neat.StdOutReporter(True))
+        population_margit.add_reporter(neat.StdOutReporter(True))
+
+        checkpointer_tarnished = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/neat-checkpoint-tarnished-')
+        checkpointer_margit = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/neat-checkpoint-margit-')
+        
+        population_tarnished.add_reporter(checkpointer_tarnished)
+        population_margit.add_reporter(checkpointer_margit)
     
-    # print(type(genomes))
-    print(type(population_margit.population))
     try:
-        winner_player = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=GENERATIONS)
-        winner_enemy = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=GENERATIONS)
+
+        # Run NEAT for player and enemy separately
+        winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=GENERATIONS)
+        winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=GENERATIONS)
     except Exception as e:
         with open("debug.txt", "w") as f:
             f.write(str(e))
