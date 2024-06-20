@@ -3,7 +3,7 @@ import json
 import math
 import neat
 import os
-from pathlib import Path
+import pathlib
 import pygame
 import shutil
 import string
@@ -20,14 +20,13 @@ from entities.exceptions import *
 
 from config.settings import *
 
-# from utilities import draw_text
-
-
 pygame.font.init()
 
-######## DELETE GAME STATES ############
+########## STARTUP CLEANUP
 
-folder = '/path/to/folder'
+# DELETE GAME STATES #
+
+folder = GAMESTATES_PATH
 for filename in os.listdir(folder):
     file_path = os.path.join(folder, filename)
     try:
@@ -38,7 +37,9 @@ for filename in os.listdir(folder):
     except Exception as e:
         print('Failed to delete %s. Reason: %s' % (file_path, e))
 
-# [f.unlink() for f in Path(f"{GAMESTATES_PATH}").glob("*")] 
+# Delete debug file to ensure we arent looking at old exceptions
+pathlib.Path.unlink("debug.txt", missing_ok=True)
+
 
 ##################
 
@@ -69,6 +70,7 @@ population_margit = neat.Population(margit_neat_config)
 
 curr_pop = 0
 curr_gen = 0
+curr_trainer = "Unknown"
 
 # Define the fitness function
 def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
@@ -76,7 +78,7 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
     global curr_pop
     curr_pop = 0
     curr_gen += 1
-    Path(f"{GAMESTATES_PATH}/gen_{curr_gen}").mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f"{GAMESTATES_PATH}/gen_{curr_gen}").mkdir(parents=True, exist_ok=True)
 
     print(type(genomes_tarnished))
     print(type(genomes_margit))
@@ -116,14 +118,16 @@ def draw_text(surface, text, x, y, font_size=20, color=(255, 255, 255)):
 def draw():
     global curr_gen
     global curr_pop
+    global curr_trainer
     WIN.blit(BG, (0,0))
 
     tarnished.draw(WIN)
     margit.draw(WIN)
 
     # Draw the name below the health bar
-    draw_text(WIN, "Generation: " + str(curr_gen), 200, 500, font_size=50, color=(255, 0, 0))
-    draw_text(WIN, "Population: " + str(curr_pop), 200, 600, font_size=50, color=(255, 0, 0))
+    draw_text(WIN, "Trainer: " + str(curr_trainer), 200, 400, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(curr_gen), 200, 500, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Population: " + str(curr_pop), 200, 600, font_size=40, color=(255, 0, 0))
 
     pygame.display.update()
 
@@ -144,6 +148,7 @@ def main(tarnished_net, margit_net) -> tuple[int]:
     global margit
     global curr_pop
     global curr_gen
+    global curr_trainer
     curr_pop += 1
 
     # Reset the npcs
@@ -228,7 +233,7 @@ def main(tarnished_net, margit_net) -> tuple[int]:
         # file_name += f"-{game_result['margit_fitness']}"
         # file_name += f"-{game_result['fitness_version']}"
         # file_name += f"-{game_result['game_version']}"
-        file_name = str(curr_pop)
+        file_name = str(curr_pop) + f"_{curr_trainer}"
         file_name += ".json"
         file_name = file_name.replace(":", "_")
         with open(f"{GAMESTATES_PATH}/gen_{curr_gen}/{file_name}", 'w') as f:
@@ -470,12 +475,9 @@ class OneIndexedCheckpointer(neat.Checkpointer):
     def __init__(self, generation_interval=1, time_interval_seconds=None, filename_prefix="neat-checkpoint-"):
         super().__init__(generation_interval, time_interval_seconds, filename_prefix)
 
-    def save_checkpoint(self, population, filename_prefix=None):
+    def save_checkpoint(self, config, population, species_set, generation):
         # Increment the generation number by 1 to make it 1-indexed
-        current_generation = population.generation + 1
-        filename_prefix = filename_prefix or self.filename_prefix
-        filename = f"{filename_prefix}{current_generation}"
-        self.save_checkpoint_to_filename(population, filename)
+        super().save_checkpoint(config, population, species_set, generation + 1)
 
 
 if __name__ == "__main__":
@@ -483,7 +485,7 @@ if __name__ == "__main__":
     if CACHE_CHECKPOINTS:
         # Setup checkpoints
         curr_fitness_checkpoints = f"{CHECKPOINTS_PATH}/{FITNESS_VERSION}"
-        Path(curr_fitness_checkpoints).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(curr_fitness_checkpoints).mkdir(parents=True, exist_ok=True)
         # Find the run that we need to use
         runs = os.listdir(curr_fitness_checkpoints)
         i = 1
@@ -495,7 +497,7 @@ if __name__ == "__main__":
             raise Exception("Youve been trying this fitness function too many times. Fix the problem.")
         
         this_runs_checkpoints = f"{curr_fitness_checkpoints}/run_{i}"
-        Path(this_runs_checkpoints).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(this_runs_checkpoints).mkdir(parents=True, exist_ok=True)
 
         population_tarnished.add_reporter(neat.StdOutReporter(True))
         population_margit.add_reporter(neat.StdOutReporter(True))
@@ -507,13 +509,19 @@ if __name__ == "__main__":
         population_margit.add_reporter(checkpointer_margit)
     
     try:
-
-        # Run NEAT for player and enemy separately
-        winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=GENERATIONS)
-        winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=GENERATIONS)
+        # Co train margit/tarnished so they learn together
+        for gen in range(0, GENERATIONS, TRAINING_INTERVAL):
+            # Run NEAT for player and enemy separately
+            curr_gen = gen
+            curr_trainer = "Tarnished"
+            winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
+            curr_gen = gen
+            curr_trainer = "Margit"
+            winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=TRAINING_INTERVAL)
     except Exception as e:
         with open("debug.txt", "w") as f:
             f.write(str(e))
+        raise
     
 
 pygame.quit()

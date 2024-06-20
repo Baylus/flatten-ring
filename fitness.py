@@ -1,5 +1,7 @@
 import math
 
+from entities.actions import Actions, get_primary_action
+
 class FitnessSettings:
     class Tarnished:
         MIN_DISTANCE_FOR_MAX_POINTS = 100
@@ -7,6 +9,12 @@ class FitnessSettings:
         DAMAGE_MULTIPLER = 15
         DIST_TRAVELED_MULT = 0.2 # Raw distance traveled
         NEW_ACTION_BONUS = 3
+
+        REPEAT_ACTION_PENALTY = 1
+        # This is the factor applied every single update for the number of repeated actions
+        # for any given actions. e.g. say we have 10 repeated actions with penalty of 1 and 0.1 mult. We wouldnt end up with 1 total
+        # we would have .1 from first update, .3 for second (2 penalties * MULT + 0.1 existing mult hit) .6, 1.0, 1.5, 2.1, etc...
+        REPEAT_ACTION_MULT = 0.1
 
         # Major fitness points, this is very hard
         WIN = 300
@@ -23,6 +31,12 @@ class FitnessSettings:
         DAMAGE_MULTIPLIER = 15
         DIST_TRAVELED_MULT = 0.2 # Raw distance traveled
         NEW_ACTION_BONUS = 3
+
+        REPEAT_ACTION_PENALTY = 1
+        # This is the factor applied every single update for the number of repeated actions
+        # for any given actions. e.g. say we have 10 repeated actions with penalty of 1 and 0.1 mult. We wouldnt end up with 1 total
+        # we would have .1 from first update, .3 for second (2 penalties * MULT + 0.1 existing mult hit) .6, 1.0, 1.5, 2.1, etc...
+        REPEAT_ACTION_MULT = 0.1
 
         # Margit's expected victory
         WIN = 100
@@ -94,6 +108,7 @@ Returns:
     _type_: _description_
 """
 
+# Example game state
 EX_GAME_STATE = {
     "winner": "draw",
     "tarnished_fitness": 408,
@@ -168,7 +183,9 @@ def get_tarnished_fitness(result):
 
     last_distance = None
     last_dist_traveled = None
-    last_actions = None
+    last_action: Actions = None
+    # Increasing penalty for repeated actions
+    repeat_action_penalty = 0
     for frame in result["game_states"]:
         ### Reward Tarnished for proximity to Margit
         # Calculate proximity
@@ -190,13 +207,19 @@ def get_tarnished_fitness(result):
             if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
                 fitness += diff * settings.DIST_TRAVELED_MULT
 
-        ### Reward for choosing different actions than the last frame
-        curr_actions = frame["tarnished"]["actions"]
-        if last_actions:
-            if last_actions != curr_actions:
-                fitness += settings.NEW_ACTION_BONUS
+        ### Penalty for choosing same actions as the last update
+        curr_action = get_primary_action(last_state["tarnished"]["actions"])
+        if not curr_action:
+            # We really don't want them not moving
+            repeat_action_penalty += settings.REPEAT_ACTION_PENALTY * 2
+        elif last_action and last_action == curr_action:
+            # We did the same thing last update
+            repeat_action_penalty += settings.REPEAT_ACTION_PENALTY
 
-        last_actions = curr_actions
+            # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
+            fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
+
+        last_action = curr_action
         last_distance = dist
         last_dist_traveled = curr_moved
     
@@ -226,8 +249,9 @@ def get_margit_fitness(result):
     fitness = 0
 
     last_distance = None
-    last_actions = None
+    last_action = None
     last_dist_traveled = None
+    repeat_action_penalty = 0
     for frame in result["game_states"]:
         # Reward for moving around
         curr_moved = last_state["margit"]["state"]["moved"]
@@ -253,14 +277,22 @@ def get_margit_fitness(result):
             if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
                 fitness += diff * settings.DIST_TRAVELED_MULT
 
-        ### Reward for choosing different actions than the last frame
-        curr_actions = frame["margit"]["actions"]
-        if last_actions:
-            if last_actions != curr_actions:
-                fitness += settings.NEW_ACTION_BONUS
+        ### Penalty for choosing same actions as the last update
+        curr_action = get_primary_action(last_state["tarnished"]["actions"])
+        if not curr_action:
+            # We really don't want them not moving
+            repeat_action_penalty += settings.REPEAT_ACTION_PENALTY * 2
+        elif last_action and last_action == curr_action:
+            # We did the same thing last update
+            repeat_action_penalty += settings.REPEAT_ACTION_PENALTY
+
+            # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
+            fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
         
+        # CONSIDER: Also giving a penalty for Margit choosing an attack two updates in a row
+
+        last_action = curr_action
         last_distance = dist
-        last_actions = curr_actions
         last_dist_traveled = curr_moved
     
     # Reward for damaging % more the enemy than you got damaged

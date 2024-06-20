@@ -29,13 +29,7 @@ GAMESTATES_PATH = "game_states/"
 
 GENERATIONS = 150
 # Number of iterations that one model will train before training the other one.
-INTERATIONS = 5
+TRAINING_INTERVAL = 5
 CACHE_CHECKPOINTS = True
-CHECKPOINT_INTERVAL = 5
+CHECKPOINT_INTERVAL = 10
 
-
-# FITNESS_SETTINGS = {
-#     TARNISHED: {
-#         MIN_DISTANCE_FOR_MAX_POINTS: 
-#     }
-# }

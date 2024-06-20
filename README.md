@@ -64,3 +64,7 @@ We will need Tarnished's current angle so that Margit knows whether it is in the
 Note: Margit will have lead time on all his actions, similar to how the game works in elden ring. This is to simulate the reactions that players can have to a specific attack when they see it coming. This will be the advantage that the Tarnished has over Margit.
 
 However, this also means that it may be critical that Margit doesn't know the Tarnished's angle, because then it could predict where it is going to be vulnerable and attack for free anytime that the tarnished dodges, but I am unsure how this will play out.
+
+
+## Stuff to do
+- Fix the TPS variable to be grabbed from a file that can be updated in the middle of a run so that I can take a better look at behavior once it starts to get farther in the run.
