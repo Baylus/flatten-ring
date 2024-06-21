@@ -6,7 +6,7 @@ class FitnessSettings:
     class Tarnished:
         MIN_DISTANCE_FOR_MAX_POINTS = 100
         MAX_PROXIMITY_POINTS_PER_UPDATE = 2
-        DAMAGE_MULTIPLER = 15
+        DAMAGE_MULTIPLER = 20
         DIST_TRAVELED_MULT = 0.2 # Raw distance traveled
         NEW_ACTION_BONUS = 3
 
@@ -28,7 +28,7 @@ class FitnessSettings:
     class Margit:
         MIN_DISTANCE_FOR_MAX_POINTS = 100
         MAX_PROXIMITY_POINTS_PER_UPDATE = 2
-        DAMAGE_MULTIPLIER = 15
+        DAMAGE_MULTIPLIER = 20
         DIST_TRAVELED_MULT = 0.2 # Raw distance traveled
         NEW_ACTION_BONUS = 3
 
@@ -212,7 +212,7 @@ def get_tarnished_fitness(result):
         if not curr_action:
             # We really don't want them not moving
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY * 2
-            
+
             # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
             fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
         elif last_action and last_action == curr_action:
@@ -283,7 +283,7 @@ def get_margit_fitness(result):
         ### Penalty for choosing same actions as the last update
         curr_action = get_primary_action(last_state["margit"]["actions"])
         if not curr_action:
-            # We really don't want them not moving
+            # We really don't want them not doing anything
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY * 2
 
             # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
