@@ -8,7 +8,9 @@ class FitnessSettings:
         MAX_PROXIMITY_POINTS_PER_UPDATE = 2
         DAMAGE_MULTIPLER = 20
         DIST_TRAVELED_MULT = 0.2 # Raw distance traveled
-        NEW_ACTION_BONUS = 3
+        NEW_ACTION_BONUS = 0.5
+
+        SURVIVAL_FACTOR = 0.3 # Multiplier for updates survived
 
         REPEAT_ACTION_PENALTY = 1
         # This is the factor applied every single update for the number of repeated actions
@@ -22,7 +24,9 @@ class FitnessSettings:
         DRAW = -25
         # You lost, but % health will already take a big beating, so slight punishment
         # This avoids stacking loss too much that they are scared to fight at all
-        LOSS = -15
+        LOSS = -200
+        # So tired of this guy running off cliffs. Hes not gonna do that anymore
+        FALLING = -150
 
 
     class Margit:
@@ -30,7 +34,7 @@ class FitnessSettings:
         MAX_PROXIMITY_POINTS_PER_UPDATE = 2
         DAMAGE_MULTIPLIER = 20
         DIST_TRAVELED_MULT = 0.2 # Raw distance traveled
-        NEW_ACTION_BONUS = 3
+        NEW_ACTION_BONUS = 0.5
 
         REPEAT_ACTION_PENALTY = 1
         # This is the factor applied every single update for the number of repeated actions
@@ -221,6 +225,9 @@ def get_tarnished_fitness(result):
 
             # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
             fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
+        else:
+            # We chose a new action! Lets take a bit off their penalty for it.
+            repeat_action_penalty -= settings.NEW_ACTION_BONUS
 
         last_action = curr_action
         last_distance = dist
@@ -235,13 +242,12 @@ def get_tarnished_fitness(result):
     else:
         # You lost, but % health will already take a big beating, so slight punishment
         # This avoids stacking loss too much that they are scared to fight at all
-        fitness += settings.DRAW
+        fitness += settings.LOSS
     
-    fitness += len(result["game_states"]) * 0.1
-
+    fitness += len(result["game_states"]) * settings.SURVIVAL_FACTOR
     if "fall" in result["notes"]:
         # Don't fall into pits
-        fitness -= 150
+        fitness += settings.FALLING
     
     return fitness
 
@@ -294,6 +300,9 @@ def get_margit_fitness(result):
 
             # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
             fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
+        else:
+            # We chose a new action! Lets take a bit off their penalty for it.
+            repeat_action_penalty -= settings.NEW_ACTION_BONUS
         
         # CONSIDER: Also giving a penalty for Margit choosing an attack two updates in a row
 
