@@ -94,8 +94,6 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         genome.fitness = 0
 
     for (genome_id_player, genome_tarnished), (genome_id_enemy, genome_margit) in zip(genomes_tarnished, genomes_margit):
-        
-
         # Create separate neural networks for player and enemy
         player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
         enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)

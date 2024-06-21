@@ -212,6 +212,9 @@ def get_tarnished_fitness(result):
         if not curr_action:
             # We really don't want them not moving
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY * 2
+            
+            # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
+            fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
         elif last_action and last_action == curr_action:
             # We did the same thing last update
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY
@@ -282,6 +285,9 @@ def get_margit_fitness(result):
         if not curr_action:
             # We really don't want them not moving
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY * 2
+
+            # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
+            fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
         elif last_action and last_action == curr_action:
             # We did the same thing last update
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY
