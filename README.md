@@ -69,3 +69,4 @@ However, this also means that it may be critical that Margit doesn't know the Ta
 ## Stuff to do
 - Fix the TPS variable to be grabbed from a file that can be updated in the middle of a run so that I can take a better look at behavior once it starts to get farther in the run.
 - Add functionality to load previous checkpoints
+- Add Epsilon-Greedy Exploration to help aid the first couple of generations explore more freely
