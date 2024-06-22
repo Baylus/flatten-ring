@@ -120,7 +120,6 @@ class Margit(Entity):
                         self.rev_slash.start_attack()
                     elif self.current_action == Actions.MDAGGERS:
                         # We actually are going to be creating the daggers here, as opposed to "starting" them
-                        print("We are creating a dagger now")
                         dspeed = self.weapon_details[Actions.MDAGGERS]["speed"]
                         ddmg = self.weapon_details[Actions.MDAGGERS]["damage"]
                         self.daggers.append(Dagger(self, self.target, self.x, self.y, self.angle, dspeed, ddmg))
@@ -150,7 +149,6 @@ class Margit(Entity):
                     self.slash.damage = self.weapon_details[Actions.MREVSLASH]["damage"]
                     self.lead_time_before_action = self.weapon_details[Actions.MREVSLASH]["lead_time"]
                 elif Actions.MDAGGERS in moves:
-                    print("Designating creating daggers later")
                     self.current_action = Actions.MDAGGERS
                     self.time_left_in_action = self.weapon_details[Actions.MDAGGERS]["attack_time"]
                     self.lead_time_before_action = self.weapon_details[Actions.MDAGGERS]["lead_time"]

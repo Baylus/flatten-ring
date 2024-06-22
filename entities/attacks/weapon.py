@@ -2,6 +2,7 @@ import pygame
 import math
 
 from ..base import Entity
+from config.settings import SILENT
 
 class Weapon:
     def __init__(self, owner, target, image_url = "assets/tarnished_right_slash.png", reversed = False, cone_angle = 90, attack_duration = 10):
@@ -50,10 +51,12 @@ class Weapon:
             self.check_collisions()
             self.angle += self.angle_speed  # Adjust the angle increment as needed
             if not self.reversed and self.angle >= self.end_angle_offset:
-                print(f"We have ended our swing. current angle {self.angle}, end angle {self.end_angle_offset}")
+                if not SILENT:
+                    print(f"We have ended our swing. current angle {self.angle}, end angle {self.end_angle_offset}")
                 self.swinging = False
             elif self.reversed and self.angle <= self.end_angle_offset:
-                print(f"We have ended our reversed swing. current angle {self.angle}, end angle {self.end_angle_offset}")
+                if not SILENT:
+                    print(f"We have ended our reversed swing. current angle {self.angle}, end angle {self.end_angle_offset}")
                 self.swinging = False
 
 
@@ -97,5 +100,6 @@ class Weapon:
         if self.swinging and self.get_hitbox().colliderect(self.target.get_hitbox()):
             dmgtaken = self.target.take_damage(self.damage)
             if dmgtaken:
-                print(f"{self.target.name} hit for {dmgtaken}! Health: {self.target.health}")
+                if not SILENT:
+                    print(f"{self.target.name} hit for {dmgtaken}! Health: {self.target.health}")
                 self.damage = 0 # To prevent the enemy from taking damage twice from the same swing/ability
