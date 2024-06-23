@@ -23,10 +23,20 @@ from config.settings import *
 
 pygame.font.init()
 
+parser = ArgumentParser()
+parser.add_argument("-r", "--reset", dest="reset", action="store_true", default=False,
+                    help="Reset training to not use previous checkpoints")
+parser.add_argument("-q", "--quiet",
+                    # action="store_false", dest="verbose", default=True,
+                    action="store_true", dest="quiet", default=False,
+                    help="don't print status messages to stdout. Unused")
+
+args = parser.parse_args()
+
 ########## STARTUP CLEANUP
-
+print("Cleaning up old data")
 # DELETE GAME STATES #
-
+print("Cleaning up old game states")
 folder = GAMESTATES_PATH
 for filename in os.listdir(folder):
     file_path = os.path.join(folder, filename)
@@ -38,6 +48,7 @@ for filename in os.listdir(folder):
     except Exception as e:
         print('Failed to delete %s. Reason: %s' % (file_path, e))
 
+print("remove debug.txt")
 # Delete debug file to ensure we arent looking at old exceptions
 pathlib.Path.unlink("debug.txt", missing_ok=True)
 
@@ -510,16 +521,6 @@ def get_newest_checkpoint_file(files: list[str], prefix: str) -> tuple[str, int]
     return file_details
 
 
-parser = ArgumentParser()
-parser.add_argument("-r", "--reset", dest="reset", action="store_true", default=False,
-                    help="Reset training to not use previous checkpoints", metavar="FILE")
-parser.add_argument("-q", "--quiet",
-                    # action="store_false", dest="verbose", default=True,
-                    action="store_true", dest="quiet", default=False,
-                    help="don't print status messages to stdout. Unused")
-
-args = parser.parse_args()
-
 if __name__ == "__main__":
     # Add reporters, including a Checkpointer
     if CACHE_CHECKPOINTS:
@@ -529,35 +530,42 @@ if __name__ == "__main__":
         ### Find the run that we need to use
         # Get run directories
         runs = os.listdir(curr_fitness_checkpoints)
+        print(f"This is our existing runs from {curr_fitness_checkpoints}:\n{runs}")
         run_val = 1
         for i in range(1, 10):
             if f"run_{i}" not in runs:
-                if not RESTORE_CHECKPOINTS or args["reset"]:
+                if not RESTORE_CHECKPOINTS or args.reset:
                     # We are not restoring from checkpoints, so we need to make a new directory, which would be the i'th run dir
                     run_val = i
                 break
+            # Store this int in case we need to restore to a previous checkpoint
+            run_val = i
         else:
             # If this happens then I have been running too many runs and I need to think of changing the fitnesss function
             raise Exception("Youve been trying this fitness function too many times. Fix the problem.")
 
+        print(f"We found our new run folder is {run_val}")
+        this_run = f"run_{run_val}"
         # We are going to be creating new checkpoint files
-        this_runs_checkpoints = f"{curr_fitness_checkpoints}/run_{i}"
+        this_runs_checkpoints = f"{curr_fitness_checkpoints}/{this_run}"
         pathlib.Path(this_runs_checkpoints).mkdir(parents=True, exist_ok=True)
 
         # Generation numbers we are starting on for each trainer. Used to determine if we need to train margit
         # first to catch up to tarnished (incase a run is stopped during margit's training, meaning he will be
         # behind in training one full cycle)
         start_gen_nums = [0, 0]
-        if RESTORE_CHECKPOINTS and not args["reset"]:
+        if RESTORE_CHECKPOINTS and not args.reset:
             # We gotta find the right run to restore
             existing_checkpoint_files = os.listdir(this_runs_checkpoints)
+            print(f"This is our existing checkpoints from {this_runs_checkpoints}:\n{existing_checkpoint_files}")
             if existing_checkpoint_files: 
 
                 tarn_checkpoint, start_gen_nums[0] = get_newest_checkpoint_file(existing_checkpoint_files, TARNISHED_CHECKPOINT_PREFIX)
-                checkpointer_tarnished = OneIndexedCheckpointer.restore_checkpoint(tarn_checkpoint)
-
+                checkpointer_tarnished = OneIndexedCheckpointer.restore_checkpoint(f"{this_runs_checkpoints}/{tarn_checkpoint}")
+                print(f"We are using {tarn_checkpoint} for tarnished")
                 margit_checkpoint, start_gen_nums[1] = get_newest_checkpoint_file(existing_checkpoint_files, MARGIT_CHECKPOINT_PREFIX)
-                checkpointer_margit = OneIndexedCheckpointer.restore_checkpoint(margit_checkpoint)
+                checkpointer_margit = OneIndexedCheckpointer.restore_checkpoint(f"{this_runs_checkpoints}/{margit_checkpoint}")
+                print(f"We are using {margit_checkpoint} for margit")
             else:
                 # We didn't have any existing checkpoints within the run's folder
                 print("Warning, attempted to restore checkpoints, but no checkpoints were present. If this was expected, disregard.")
@@ -571,15 +579,15 @@ if __name__ == "__main__":
         population_margit.add_reporter(neat.StdOutReporter(True))
         population_margit.add_reporter(neat.StatisticsReporter())
         population_margit.add_reporter(checkpointer_margit)
-    
+
     try:
-        if start_gen_nums[0] > start_gen_nums[1]:
-            # Margit is behind tarnished because we cancelled run during his training
-            # Let him catch up with one cycle before going into loop
-            curr_gen = start_gen_nums[1]
-            generations_to_catchup = start_gen_nums[0] - start_gen_nums[1]
-            curr_trainer = "Margit"
-            winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=generations_to_catchup)
+        # if start_gen_nums[0] > start_gen_nums[1]:
+        #     # Margit is behind tarnished because we cancelled run during his training
+        #     # Let him catch up with one cycle before going into loop
+        #     curr_gen = start_gen_nums[1]
+        #     generations_to_catchup = start_gen_nums[0] - start_gen_nums[1]
+        #     curr_trainer = "Margit"
+        #     winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=generations_to_catchup)
         
         # Co train margit/tarnished so they learn together
         for gen in range(start_gen_nums[0], GENERATIONS, TRAINING_INTERVAL):
