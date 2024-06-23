@@ -27,9 +27,14 @@ CHECKPOINTS_PATH = "checkpoints/"
 GAMESTATES_PATH = "game_states/"
 
 
-GENERATIONS = 150
+GENERATIONS = 500 # We are really going to max out the learning now that we are continuing checkpoints
 # Number of iterations that one model will train before training the other one.
 TRAINING_INTERVAL = 5
 CACHE_CHECKPOINTS = True
 CHECKPOINT_INTERVAL = 10
+RESTORE_CHECKPOINTS = True
 
+TARNISHED_CHECKPOINT_PREFIX = "neat-checkpoint-tarnished-"
+MARGIT_CHECKPOINT_PREFIX = "neat-checkpoint-margit-"
+
+SILENT = True
