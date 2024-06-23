@@ -1,9 +1,17 @@
+from argparse import ArgumentParser
 import datetime as dt
 import json
-import pygame
-import sys
-import string
+import math
 import neat
+import os
+import pathlib
+import pygame
+import shutil
+import string
+import sys
+
+
+from fitness import get_tarnished_fitness, get_margit_fitness
 
 from entities.tarnished import Tarnished
 from entities.margit import Margit
@@ -13,11 +21,37 @@ from entities.exceptions import *
 
 from config.settings import *
 
+pygame.font.init()
 
-######## DELETE GAME STATES ############
-from pathlib import Path
+parser = ArgumentParser()
+parser.add_argument("-r", "--reset", dest="reset", action="store_true", default=False,
+                    help="Reset training to not use previous checkpoints")
+parser.add_argument("-q", "--quiet",
+                    # action="store_false", dest="verbose", default=True,
+                    action="store_true", dest="quiet", default=False,
+                    help="don't print status messages to stdout. Unused")
 
-[f.unlink() for f in Path("game_states").glob("*") if f.is_file()] 
+args = parser.parse_args()
+
+########## STARTUP CLEANUP
+print("Cleaning up old data")
+# DELETE GAME STATES #
+print("Cleaning up old game states")
+folder = GAMESTATES_PATH
+for filename in os.listdir(folder):
+    file_path = os.path.join(folder, filename)
+    try:
+        if os.path.isfile(file_path) or os.path.islink(file_path):
+            os.unlink(file_path)
+        elif os.path.isdir(file_path):
+            shutil.rmtree(file_path)
+    except Exception as e:
+        print('Failed to delete %s. Reason: %s' % (file_path, e))
+
+print("remove debug.txt")
+# Delete debug file to ensure we arent looking at old exceptions
+pathlib.Path.unlink("debug.txt", missing_ok=True)
+
 
 ##################
 
@@ -46,10 +80,18 @@ margit_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduc
 population_tarnished = neat.Population(tarnished_neat_config)
 population_margit = neat.Population(margit_neat_config)
 
+curr_pop = 0
+curr_gen = 0
+curr_trainer = "Unknown"
+
 # Define the fitness function
 def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
-    print(type(genomes_tarnished))
-    print(type(genomes_margit))
+    global curr_gen
+    global curr_pop
+    curr_pop = 0
+    curr_gen += 1
+    pathlib.Path(f"{GAMESTATES_PATH}/gen_{curr_gen}").mkdir(parents=True, exist_ok=True)
+
     if type(genomes_tarnished) == dict:
         genomes_tarnished = list(genomes_tarnished.items())
     if type(genomes_margit) == dict:
@@ -76,11 +118,24 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         assert genome_tarnished.fitness is not None
         assert genome_margit.fitness is not None
 
+def draw_text(surface, text, x, y, font_size=20, color=(255, 255, 255)):
+    font = pygame.font.SysFont(None, font_size)
+    text_surface = font.render(text, True, color)
+    surface.blit(text_surface, (x, y))
+
 def draw():
+    global curr_gen
+    global curr_pop
+    global curr_trainer
     WIN.blit(BG, (0,0))
 
     tarnished.draw(WIN)
     margit.draw(WIN)
+
+    # Draw the name below the health bar
+    draw_text(WIN, "Trainer: " + str(curr_trainer), 200, 400, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(curr_gen), 200, 500, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Population: " + str(curr_pop), 200, 600, font_size=40, color=(255, 0, 0))
 
     pygame.display.update()
 
@@ -99,6 +154,11 @@ def main(tarnished_net, margit_net) -> tuple[int]:
     """
     global tarnished
     global margit
+    global curr_pop
+    global curr_gen
+    global curr_trainer
+    curr_pop += 1
+
     # Reset the npcs
     tarnished = Tarnished()
     margit = Margit()
@@ -176,17 +236,20 @@ def main(tarnished_net, margit_net) -> tuple[int]:
         game_result["tarnished_fitness"] = int(get_tarnished_fitness(game_result))
         game_result["margit_fitness"] = int(get_margit_fitness(game_result))
 
-        file_name = f"{dt.datetime.now().time()}"
-        file_name += f"-{game_result['tarnished_fitness']}"
-        file_name += f"-{game_result['margit_fitness']}"
-        file_name += f"-{game_result['fitness_version']}"
-        file_name += f"-{game_result['game_version']}"
+        # file_name = f"{dt.datetime.now().time()}"
+        # file_name += f"-{game_result['tarnished_fitness']}"
+        # file_name += f"-{game_result['margit_fitness']}"
+        # file_name += f"-{game_result['fitness_version']}"
+        # file_name += f"-{game_result['game_version']}"
+        file_name = str(curr_pop) + f"_{curr_trainer}"
         file_name += ".json"
         file_name = file_name.replace(":", "_")
-        with open(f"game_states/{file_name}", 'w') as f:
+        with open(f"{GAMESTATES_PATH}/gen_{curr_gen}/{file_name}", 'w') as f:
             json.dump(game_result, f, indent=4)
     
     return game_result["tarnished_fitness"], game_result["margit_fitness"]
+
+### Actions ###
 
 
 TARNISHED_OUTPUT_MAP = [ # ABSOLUTELY CRITICAL THIS IS NOT TOUCHED OR THE NETWORK WILL NEED TO BE RETRAINED
@@ -230,8 +293,6 @@ def get_tarnished_actions(net, gamestate) -> list[Actions]:
         margit_state["current_action"] or -1,
         margit_state["time_in_action"],
     )
-    # print(inputs)
-
     # Now get the recommended outputs
     outputs = net.activate(inputs)
 
@@ -239,16 +300,17 @@ def get_tarnished_actions(net, gamestate) -> list[Actions]:
     # Go through every element in the output, and if it exists, then place the corresponding
     # action into the list.
     actions = [TARNISHED_OUTPUT_MAP[i] for i in range(len(outputs)) if outputs[i]]
-    print(actions)
-    return actions
+    # print(actions)
+    
+    return prune_actions(actions)
 
 MARGIT_OUTPUT_MAP = [ # ABSOLUTELY CRITICAL THIS IS NOT TOUCHED OR THE NETWORK WILL NEED TO BE RETRAINED
     Actions.MLEFT,
     Actions.MRIGHT,
     Actions.MFORWARD,
     Actions.MBACK,
+    Actions.MTURNL,     # NOTE!!!!!!!!!!!!!!! I moved L and R here, because the order was wrong, despite the warning. I think it should be fine.
     Actions.MTURNR,
-    Actions.MTURNL,
     Actions.MRETREAT,
     Actions.MSLASH,
     Actions.MREVSLASH,
@@ -294,8 +356,45 @@ def get_margit_actions(net, gamestate) -> list[Actions]:
     # action into the list.
     actions = [MARGIT_OUTPUT_MAP[i] for i in range(len(outputs)) if outputs[i]]
 
-    print(actions)
+    if not SILENT:
+        print(f"Margit's actions we found: {actions}")
+    return prune_actions(actions)
+
+def prune_actions(actions: list[Actions]):
+    """Take a list of actions and prune out the actions that would cancel each other out, meaning they wont be used.
+
+    Mainly prunes out the rights and lefts in the inputs.
+
+    Args:
+        actions (_type_): _description_
+    """
+    # Left/right
+    a = Actions
+    if a.PLEFT in actions and a.PRIGHT in actions:
+        actions.remove(a.PLEFT)
+        actions.remove(a.PRIGHT)
+    if a.MLEFT in actions and a.MRIGHT in actions:
+        actions.remove(a.MLEFT)
+        actions.remove(a.MRIGHT)
+    
+    # Forward/Back
+    if a.PFORWARD in actions and a.PBACK in actions:
+        actions.remove(a.PFORWARD)
+        actions.remove(a.PBACK)
+    if a.MFORWARD in actions and a.MBACK in actions:
+        actions.remove(a.MFORWARD)
+        actions.remove(a.MBACK)
+
+    # Turning
+    if a.PTURNL in actions and a.PTURNR in actions:
+        actions.remove(a.PTURNL)
+        actions.remove(a.PTURNR)
+    if a.MTURNL in actions and a.MTURNR in actions:
+        actions.remove(a.MTURNL)
+        actions.remove(a.MTURNR)
+
     return actions
+
 
 def get_actions(inputs) -> list[int]:
     """Create list of actions that should be taken based on the inputs
@@ -380,81 +479,129 @@ def get_actions(inputs) -> list[int]:
     return actions
 
 
-####### Fitness ############
+# To fix it from doing n-1 checkpoint numbers
+class OneIndexedCheckpointer(neat.Checkpointer):
+    def __init__(self, generation_interval=1, time_interval_seconds=None, filename_prefix="neat-checkpoint-"):
+        super().__init__(generation_interval, time_interval_seconds, filename_prefix)
 
-def get_tarnished_fitness(result):
-    last_state = result["game_states"][-1]
-    fitness = 0
+    def save_checkpoint(self, config, population, species_set, generation):
+        # Increment the generation number by 1 to make it 1-indexed
+        super().save_checkpoint(config, population, species_set, generation + 1)
 
-    # Reward for damaging % more the enemy than you got damaged
-    # tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
-    # margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
-    # diff = tarnished_percent - margit_percent
-    # if diff > 0:
-    #     fitness += diff * 10
-    margit_missing_health = last_state["margit"]["state"]["max_health"] - last_state["margit"]["state"]["health"]
-    fitness += margit_missing_health * 5
+def get_newest_checkpoint_file(files: list[str], prefix: str) -> tuple[str, int]:
+    """Gets the most recent checkpoint from the previous run the resume the training.
 
-    if result["winner"] == "tarnished":
-        # Major fitness points, this is very hard
-        fitness += 300
-    elif result["winner"] == "draw":
-        # only slight fitness loss, but I want to encourage them to fight
-        fitness -= 25
-    else:
-        # You lost, but % health will already take a big beating, so slight punishment
-        # This avoids stacking loss too much that they are scared to fight at all
-        fitness -= 15
+    Args:
+        files (list[str]): _description_
+        prefix (str): _description_
+
+    Returns:
+        tuple[str, int]: <file name, generation number>
+    """
+    def get_gen_num_from_name(file_name: str) -> int:
+        if file_name[-1] == '-':
+            raise ValueError(f"There is something really wrong. This checkpoint file is missing a gen number: {file_name}")
+        max_gen_num_len = len(str(GENERATIONS))
+        postfix = file_name[ -max_gen_num_len :]
+        for i in range(len(postfix)):
+            if postfix[i] == '-':
+                # We found the dash, the rest is the gen number
+                return int(postfix[i+1:])
+        else:
+            # We had no '-', so this whole thing must be the gen number
+            return int(postfix)
     
-    fitness += len(result["game_states"]) * 0.1
+    file_details = ["", 0]
+    prefixed = [fn for fn in files if prefix in fn] # Files containing the prefix
+    for name in prefixed:
+        gen = get_gen_num_from_name(name)
+        if gen > file_details[1]:
+            file_details = (name, gen)
 
-    if "fall" in result["notes"]:
-        # Don't fall into pits
-        fitness -= 150
-    
-    return fitness
-
-def get_margit_fitness(result):
-    last_state = result["game_states"][-1]
-    fitness = 0
-
-    # Reward for damaging % more the enemy than you got damaged
-    tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
-    margit_percent = last_state["margit"]["state"]["health"] / last_state["margit"]["state"]["max_health"]
-    diff = (margit_percent - tarnished_percent)
-    # Now check which direction it is in, and weight it accordingly
-    if diff < 0:
-        # NOTE: += because diff is already negative
-        fitness += diff * 2 # Heavier losses if we lose more than if we gain more
-    else:
-        fitness += diff
-
-    if result["winner"] == "tarnished":
-        # Major fitness points, Margit should not lose
-        fitness -= 300
-    elif result["winner"] == "draw":
-        # Biggest draw loss on Margit, he should be pressuring Tarnished
-        fitness -= 50
-    else:
-        # Margit's expected victory
-        fitness += 100
-    
-    if "fall" in result["notes"]:
-        # Don't fall into pits
-        fitness -= 5
-    
-    return fitness
+    return file_details
 
 
 if __name__ == "__main__":
-    # Run NEAT for player and enemy separately
-    
-    # print(type(genomes))
-    print(type(population_margit.population))
+    # Add reporters, including a Checkpointer
+    if CACHE_CHECKPOINTS:
+        # Setup checkpoints
+        curr_fitness_checkpoints = f"{CHECKPOINTS_PATH}/{FITNESS_VERSION}"
+        pathlib.Path(curr_fitness_checkpoints).mkdir(parents=True, exist_ok=True)
+        ### Find the run that we need to use
+        # Get run directories
+        runs = os.listdir(curr_fitness_checkpoints)
+        print(f"This is our existing runs from {curr_fitness_checkpoints}:\n{runs}")
+        run_val = 1
+        for i in range(1, 10):
+            if f"run_{i}" not in runs:
+                if not RESTORE_CHECKPOINTS or args.reset:
+                    # We are not restoring from checkpoints, so we need to make a new directory, which would be the i'th run dir
+                    run_val = i
+                break
+            # Store this int in case we need to restore to a previous checkpoint
+            run_val = i
+        else:
+            # If this happens then I have been running too many runs and I need to think of changing the fitnesss function
+            raise Exception("Youve been trying this fitness function too many times. Fix the problem.")
 
-    winner_player = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=50)
-    winner_enemy = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=50)
+        print(f"We found our new run folder is {run_val}")
+        this_run = f"run_{run_val}"
+        # We are going to be creating new checkpoint files
+        this_runs_checkpoints = f"{curr_fitness_checkpoints}/{this_run}"
+        pathlib.Path(this_runs_checkpoints).mkdir(parents=True, exist_ok=True)
 
+        # Generation numbers we are starting on for each trainer. Used to determine if we need to train margit
+        # first to catch up to tarnished (incase a run is stopped during margit's training, meaning he will be
+        # behind in training one full cycle)
+        start_gen_nums = [0, 0]
+        if RESTORE_CHECKPOINTS and not args.reset:
+            # We gotta find the right run to restore
+            existing_checkpoint_files = os.listdir(this_runs_checkpoints)
+            print(f"This is our existing checkpoints from {this_runs_checkpoints}:\n{existing_checkpoint_files}")
+            if existing_checkpoint_files: 
+
+                tarn_checkpoint, start_gen_nums[0] = get_newest_checkpoint_file(existing_checkpoint_files, TARNISHED_CHECKPOINT_PREFIX)
+                checkpointer_tarnished = OneIndexedCheckpointer.restore_checkpoint(f"{this_runs_checkpoints}/{tarn_checkpoint}")
+                print(f"We are using {tarn_checkpoint} for tarnished")
+                margit_checkpoint, start_gen_nums[1] = get_newest_checkpoint_file(existing_checkpoint_files, MARGIT_CHECKPOINT_PREFIX)
+                checkpointer_margit = OneIndexedCheckpointer.restore_checkpoint(f"{this_runs_checkpoints}/{margit_checkpoint}")
+                print(f"We are using {margit_checkpoint} for margit")
+            else:
+                # We didn't have any existing checkpoints within the run's folder
+                print("Warning, attempted to restore checkpoints, but no checkpoints were present. If this was expected, disregard.")
+
+        checkpointer_tarnished = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{TARNISHED_CHECKPOINT_PREFIX}')
+        checkpointer_margit = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
+        
+        population_tarnished.add_reporter(neat.StdOutReporter(True))
+        population_tarnished.add_reporter(neat.StatisticsReporter())
+        population_tarnished.add_reporter(checkpointer_tarnished)
+        population_margit.add_reporter(neat.StdOutReporter(True))
+        population_margit.add_reporter(neat.StatisticsReporter())
+        population_margit.add_reporter(checkpointer_margit)
+
+    try:
+        # if start_gen_nums[0] > start_gen_nums[1]:
+        #     # Margit is behind tarnished because we cancelled run during his training
+        #     # Let him catch up with one cycle before going into loop
+        #     curr_gen = start_gen_nums[1]
+        #     generations_to_catchup = start_gen_nums[0] - start_gen_nums[1]
+        #     curr_trainer = "Margit"
+        #     winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=generations_to_catchup)
+        
+        # Co train margit/tarnished so they learn together
+        for gen in range(start_gen_nums[0], GENERATIONS, TRAINING_INTERVAL):
+            # Run NEAT for player and enemy separately
+            curr_gen = gen
+            curr_trainer = "Tarnished"
+            winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
+            curr_gen = gen
+            curr_trainer = "Margit"
+            winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=TRAINING_INTERVAL)
+    except Exception as e:
+        with open("debug.txt", "w") as f:
+            f.write(str(e))
+        raise
     
 
 pygame.quit()

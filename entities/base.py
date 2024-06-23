@@ -1,6 +1,7 @@
 import pygame
 
 from utilities import calculate_new_xy
+from config.settings import *
 
 from .exceptions import CharacterDied
 from .actions import Actions
@@ -23,6 +24,9 @@ class Entity():
     turn_speed: int = 5 # How fast the character can rotate, degrees/tick
 
     hitbox_coefficient = 1
+
+    # Statistics
+    moved = 0
 
     def __init__(self):
         super().__init__()
@@ -88,8 +92,11 @@ class Entity():
         # Find movement angle and adjust distance
         move_ang = self.angle + ang_offset
         new_pos = calculate_new_xy((self.x, self.y), self.velocity, move_ang)
-        print(f"Old position {(self.x, self.y)}.... New pos {new_pos}")
+        if not SILENT:
+            print(f"Old position {(self.x, self.y)}.... New pos {new_pos}")
         self.x, self.y = new_pos
+
+        self.moved += self.velocity
 
         return move_ang
 
@@ -111,6 +118,7 @@ class Entity():
         status["current_action"] = self.current_action
         status["time_in_action"] = self.time_in_action
         status["angle"] = self.angle
+        status["moved"] = self.moved
 
         return status
 
@@ -127,7 +135,8 @@ class Entity():
             int: Number of damage taken
         """
         if self.iframes > 0:
-            print("Entity would have been hit, but currently has invincibility frames")
+            if not SILENT:
+                print("Entity would have been hit, but currently has invincibility frames")
         else:
             self.health -= damage
             if self.health < 1:

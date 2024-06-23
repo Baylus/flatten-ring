@@ -1,7 +1,7 @@
 import pygame
 
 from utilities import calculate_new_xy, draw_health_bar
-from config.settings import TPS, WIDTH, HEIGHT, TARNISHED_IMAGE, HEALTH_BAR_WIDTHS, HEALTH_BAR_HEIGHTS, DEFAULT_HEALTH_BAR_PADDING
+from config.settings import *
 # from main import margit
 
 from .base import Entity
@@ -103,8 +103,9 @@ class Tarnished(Entity):
             move_ang = self.angle
             if moves:
                 # We have some moves to do
-                print("We have to move, heres our actions: ")
-                print(moves)
+                if not SILENT:
+                    print("We have to move, heres our actions: ")
+                    print(moves)
                 move_ang = self.move(moves)
             
             # Now is the appropriate time to dodge, almost entirely because we have 
@@ -126,7 +127,6 @@ class Tarnished(Entity):
                     self.angle -= self.turn_speed
                 else:
                     self.angle += self.turn_speed
-                # print(f"We have to turn: {moves[0]}, new angle is {self.angle}")
         finally:
             # No matter what, we are ensuring that we did not move into walls
             collide_walls()
