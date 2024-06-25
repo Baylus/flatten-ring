@@ -160,7 +160,25 @@ class Tarnished(Entity):
             Actions.PATTACK: self.weapon.get_state()
         }
         return state
+    
+    def set_state(self, state: dict):
+        """Uses input state to set and configure Margit and his weapons.
 
+        Organized like the output from 'get_state'
+
+        Args:
+            state (dict): _description_
+        """
+        super().set_state(state)
+        # Update weapons
+        attack_state = state["weapons"][Actions.PATTACK]
+        if attack_state:
+            # This weapon was being used.
+            self.weapon.set_state(attack_state)
+        else:
+            # We arent attacking in new state, so make sure weapon is stopped.
+            self.weapon.stop_attack()
+    
     def give_target(self, target):
         """Determines target which instantiates the weapon.
 

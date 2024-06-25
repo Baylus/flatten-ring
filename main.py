@@ -60,10 +60,10 @@ pathlib.Path.unlink("debug.txt", missing_ok=True)
 pygame.init()
 
 # Set up the display
-WIN = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Flatten Ring")
-
 BG = pygame.image.load("assets/stage.png")
+WIN = pygame.display.set_mode((WIDTH, HEIGHT))
+WIN.blit(BG, (0,0))
+pygame.display.set_caption("Flatten Ring")
 
 tarnished = None
 margit = None
@@ -109,7 +109,7 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
         
         # Run the simulation
-        player_fitness, enemy_fitness = main(player_net, enemy_net)
+        player_fitness, enemy_fitness = play_game(player_net, enemy_net)
         
         # Assign fitness to each genome
         genome_tarnished.fitness = player_fitness
@@ -127,7 +127,7 @@ def draw():
     global curr_gen
     global curr_pop
     global curr_trainer
-    WIN.blit(BG, (0,0))
+    global WIN
 
     tarnished.draw(WIN)
     margit.draw(WIN)
@@ -139,7 +139,7 @@ def draw():
 
     pygame.display.update()
 
-def main(tarnished_net, margit_net) -> tuple[int]:
+def play_game(tarnished_net, margit_net) -> tuple[int]:
     # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
@@ -232,15 +232,9 @@ def main(tarnished_net, margit_net) -> tuple[int]:
         game_result["notes"] = "Margit died to: " + str(e)
     finally:
         # Record our game state
-        last_state = game_result["game_states"][-1]
         game_result["tarnished_fitness"] = int(get_tarnished_fitness(game_result))
         game_result["margit_fitness"] = int(get_margit_fitness(game_result))
 
-        # file_name = f"{dt.datetime.now().time()}"
-        # file_name += f"-{game_result['tarnished_fitness']}"
-        # file_name += f"-{game_result['margit_fitness']}"
-        # file_name += f"-{game_result['fitness_version']}"
-        # file_name += f"-{game_result['game_version']}"
         file_name = str(curr_pop) + f"_{curr_trainer}"
         file_name += ".json"
         file_name = file_name.replace(":", "_")
@@ -581,14 +575,6 @@ if __name__ == "__main__":
         population_margit.add_reporter(checkpointer_margit)
 
     try:
-        # if start_gen_nums[0] > start_gen_nums[1]:
-        #     # Margit is behind tarnished because we cancelled run during his training
-        #     # Let him catch up with one cycle before going into loop
-        #     curr_gen = start_gen_nums[1]
-        #     generations_to_catchup = start_gen_nums[0] - start_gen_nums[1]
-        #     curr_trainer = "Margit"
-        #     winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=generations_to_catchup)
-        
         # Co train margit/tarnished so they learn together
         for gen in range(start_gen_nums[0], GENERATIONS, TRAINING_INTERVAL):
             # Run NEAT for player and enemy separately
@@ -602,6 +588,46 @@ if __name__ == "__main__":
         with open("debug.txt", "w") as f:
             f.write(str(e))
         raise
+    
+
+def draw_replay(state):
+    """Specific draw function for replays
+    """
+    global WIN
+
+    draw_text(WIN, "Tarn Fitness: " + str(state["tarnished_fitness"]), 200, 800, font_size=30, color=(255, 0, 0))
+    draw_text(WIN, "Marg Fitness: " + str(state["margit_fitness"]), 200, 900, font_size=40, color=(255, 0, 0))
+    # TODO: Draw fitness details on right side of screen, once we include that in fitness report
+    # draw_text(WIN, "Population: " + str(curr_pop), 200, 600, font_size=40, color=(255, 0, 0))
+
+def replay(replay_file: str):
+    global tarnished
+    global margit
+    # Reset the npcs
+    tarnished = Tarnished()
+    margit = Margit()
+    tarnished.give_target(margit)
+    margit.give_target(tarnished)
+
+    # Get our game data
+    with open(replay_file) as json_file:
+        game_data = json.load(json_file)
+    
+    # Main game loop
+    running = True
+    clock = pygame.time.Clock()
+    for frame in game_data["game_states"]:
+        clock.tick(REPLAY_TPS)
+        tarn = frame["tarnished"]["state"]
+        marg = frame["margit"]["state"]
+
+        # Update Tarnished
+        tarnished.set_state(tarn)
+        margit.set_state(marg)
+        
+        # Draw what has been updated
+        draw_replay(frame)
+    
     
 
 pygame.quit()

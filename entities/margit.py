@@ -120,9 +120,7 @@ class Margit(Entity):
                         self.rev_slash.start_attack()
                     elif self.current_action == Actions.MDAGGERS:
                         # We actually are going to be creating the daggers here, as opposed to "starting" them
-                        dspeed = self.weapon_details[Actions.MDAGGERS]["speed"]
-                        ddmg = self.weapon_details[Actions.MDAGGERS]["damage"]
-                        self.daggers.append(Dagger(self, self.target, self.x, self.y, self.angle, dspeed, ddmg))
+                        self.make_dagger()
                 return
             
             if not actions:
@@ -223,6 +221,49 @@ class Margit(Entity):
 
         return state
 
+    def set_state(self, state: dict):
+        """Uses input state to set and configure Margit and his weapons.
+
+        Organized like the output from 'get_state'
+
+        Args:
+            state (dict): _description_
+        """
+        super().set_state(state)
+        # Update weapons
+        slash_state = state["weapons"][Actions.MSLASH]
+        if slash_state:
+            # This weapon was being used.
+            self.slash.set_state(slash_state)
+        else:
+            # We arent attacking in new state, so make sure weapon is stopped.
+            self.slash.stop_attack()
+        
+        rev_slash_state = state["weapons"][Actions.MREVSLASH]
+        if rev_slash_state:
+            # This weapon was being used.
+            self.rev_slash.set_state(rev_slash_state)
+        else:
+            # We arent attacking in new state, so make sure weapon is stopped.
+            self.rev_slash.stop_attack()
+        
+        daggers_state = state["weapons"][Actions.MDAGGERS]
+        if daggers_state:
+            # There are existing daggers in new state.
+            for i in range(len(daggers_state)):
+                # For each dagger, either update current daggers or add new ones
+                if len(self.daggers) > i:
+                    # There is an existing dagger capable of updating to this state
+                    self.daggers[i].set_state(daggers_state[i])
+                else:
+                    # We have more daggers in new state than in current one. Add more
+                    new_dagger = daggers_state[i]
+                    self.make_dagger(new_dagger["x"], new_dagger["y"], new_dagger["angle"])
+            
+            # Now we got done with making all the daggers. If there are anymore left 
+            # in current daggers, we need to remove them.
+            while len(self.daggers) > len(daggers_state):
+                self.daggers.pop()
     
     def give_target(self, target):
         """Determines target which instantiates the weapon.
@@ -233,3 +274,12 @@ class Margit(Entity):
         self.target = target
         self.slash = Slash(self, target)
         self.rev_slash = Slash(self, target, reversed=True)
+
+    def make_dagger(self, x = None, y = None, angle = None, speed = None, dmg = None):
+        x = x or self.x # default to self.x
+        y = y or self.y # default to self.y
+        angle = angle or self.angle # default to self.angle
+
+        speed = speed or self.weapon_details[Actions.MDAGGERS]["speed"]
+        dmg = dmg or self.weapon_details[Actions.MDAGGERS]["damage"]
+        self.daggers.append(Dagger(self, self.target, x, y, angle, speed, dmg))

@@ -3,6 +3,7 @@ from enum import Enum
 
 WIDTH, HEIGHT = 2000, 1200
 TPS = 1000 # Ticks per second
+REPLAY_TPS = 15 # Ticks for replays
 
 HEALTH_BAR_WIDTHS = 100
 HEALTH_BAR_HEIGHTS = 20
