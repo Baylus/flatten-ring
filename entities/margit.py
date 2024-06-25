@@ -231,7 +231,7 @@ class Margit(Entity):
         """
         super().set_state(state)
         # Update weapons
-        slash_state = state["weapons"][Actions.MSLASH]
+        slash_state = state["weapons"][str(Actions.MSLASH)]
         if slash_state:
             # This weapon was being used.
             self.slash.set_state(slash_state)
@@ -239,7 +239,7 @@ class Margit(Entity):
             # We arent attacking in new state, so make sure weapon is stopped.
             self.slash.stop_attack()
         
-        rev_slash_state = state["weapons"][Actions.MREVSLASH]
+        rev_slash_state = state["weapons"][str(Actions.MREVSLASH)]
         if rev_slash_state:
             # This weapon was being used.
             self.rev_slash.set_state(rev_slash_state)
@@ -247,7 +247,7 @@ class Margit(Entity):
             # We arent attacking in new state, so make sure weapon is stopped.
             self.rev_slash.stop_attack()
         
-        daggers_state = state["weapons"][Actions.MDAGGERS]
+        daggers_state = state["weapons"][str(Actions.MDAGGERS)]
         if daggers_state:
             # There are existing daggers in new state.
             for i in range(len(daggers_state)):

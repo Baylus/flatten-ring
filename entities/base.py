@@ -129,6 +129,7 @@ class Entity():
         """
         self.x = state["x"]
         self.y = state["y"]
+        self.angle = state["angle"]
         self.health = state["health"]
         self.max_health = state["max_health"]
         self.current_action = state["current_action"]

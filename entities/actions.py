@@ -6,22 +6,22 @@ class Actions(IntEnum):
     PFORWARD = auto()
     PBACK = auto()
     PTURNL = auto()
-    PTURNR = auto()
-    PDODGE = auto()
+    PTURNR = auto()     # 6
+    PDODGE = auto()     # 7
     # PKNOCKED = auto() # Player is knocked down
     PATTACK = auto() # 8
     
     MLEFT = auto() # DO NOT REORGANIZE THIS. THIS IS BEING USED TO SIGNAL THE START OF THE MARGIT ACTIONS
-    MRIGHT = auto() # 10
-    MFORWARD = auto()
-    MBACK = auto()
-    MTURNL = auto()
-    MTURNR = auto()
-    MRETREAT = auto() # 15
+    MRIGHT = auto()     # 10
+    MFORWARD = auto()   # 11
+    MBACK = auto()      # 12
+    MTURNL = auto()     # 13
+    MTURNR = auto()     # 14
+    MRETREAT = auto()   # 15
     # Margit Attacks
-    MSLASH = auto()
-    MREVSLASH = auto()
-    MDAGGERS = auto()
+    MSLASH = auto()     # 16
+    MREVSLASH = auto()  # 17
+    MDAGGERS = auto()   # 18
 
 class ActionType(Enum):
     ATTACK = auto()

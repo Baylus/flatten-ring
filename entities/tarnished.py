@@ -171,7 +171,7 @@ class Tarnished(Entity):
         """
         super().set_state(state)
         # Update weapons
-        attack_state = state["weapons"][Actions.PATTACK]
+        attack_state = state["weapons"][str(Actions.PATTACK)]
         if attack_state:
             # This weapon was being used.
             self.weapon.set_state(attack_state)
