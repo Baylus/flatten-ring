@@ -1,3 +1,4 @@
+from enum import Enum
 import pygame
 
 from utilities import calculate_new_xy
@@ -5,6 +6,13 @@ from config.settings import *
 
 from .exceptions import CharacterDied
 from .actions import Actions
+
+class Entities(str, Enum):
+    TARNISHED = "Tarnished"
+    MARGIT = "Margit"
+
+def trainer_str(trainer: Entities):
+    return str(trainer.value)
 
 class Entity():
     name: str
@@ -101,7 +109,7 @@ class Entity():
         return move_ang
 
 
-    def get_state(self):
+    def get_state(self) -> dict:
         """Gets the total status needed for a given character for the game state
 
         Returns:
@@ -121,6 +129,18 @@ class Entity():
         status["moved"] = self.moved
 
         return status
+
+    def set_state(self, state: dict):
+        """Uses output from 'get_state' to set the current configuration of the entity
+
+        Used for replays to easily manipulate entities.
+        """
+        self.x = state["x"]
+        self.y = state["y"]
+        self.angle = state["angle"]
+        self.health = state["health"]
+        self.max_health = state["max_health"]
+        self.current_action = state["current_action"]
 
     def take_damage(self, damage: int) -> int:
         """Forces character to take specified amount of damage

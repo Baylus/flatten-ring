@@ -46,6 +46,9 @@ class Weapon:
         self.swinging = True
         self.angle = self.start_angle_offset  # Reset angle at the start of the attack
 
+    def stop_attack(self):
+        self.swinging = False
+
     def update(self):
         if self.swinging:
             self.check_collisions()
@@ -89,10 +92,27 @@ class Weapon:
             status["x"] = self.rect.x
             status["y"] = self.rect.y
             # Negative so that we are swinging the right way. DO NOT TOUCH THIS!!!!
+            # WARNING: IF THIS CHANGES, UPDATE set_state
             total_angle = self.owner.angle - self.angle
             status["angle"] = total_angle
 
         return status
+    
+    def set_state(self, state):
+        """Opposite of get_state. Configure current state to match provided one
+
+        Used during replays
+
+        Args:
+            state (dict): State we want to mimic
+        """
+        # TODO: This
+        self.swinging = True
+        self.x = state["x"]
+        self.y = state["y"]
+        # Angle is different, we have to unpack it like we packed it in the get_state()
+        # WARNING: IF THIS CHANGES, UPDATE get_state
+        self.angle = state["angle"] + self.owner.angle
     
     def check_collisions(self):
         # TODO: Update this to make margit's collision box smaller. Its too fat right now.
