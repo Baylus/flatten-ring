@@ -5,28 +5,28 @@ from entities.actions import Actions, get_primary_action
 class FitnessSettings:
     class Tarnished:
         MIN_DISTANCE_FOR_MAX_POINTS = 100
-        MAX_PROXIMITY_POINTS_PER_UPDATE = 2
-        DAMAGE_MULTIPLER = 20
+        MAX_PROXIMITY_POINTS_PER_UPDATE = 4
+        DAMAGE_MULTIPLER = 100
         DIST_TRAVELED_MULT = 0.2 # Raw distance traveled
         NEW_ACTION_BONUS = 0.5
 
-        SURVIVAL_FACTOR = 0.3 # Multiplier for updates survived
+        SURVIVAL_FACTOR = 1 # Multiplier for updates survived
 
-        REPEAT_ACTION_PENALTY = 1
+        REPEAT_ACTION_PENALTY = 0.1
         # This is the factor applied every single update for the number of repeated actions
         # for any given actions. e.g. say we have 10 repeated actions with penalty of 1 and 0.1 mult. We wouldnt end up with 1 total
         # we would have .1 from first update, .3 for second (2 penalties * MULT + 0.1 existing mult hit) .6, 1.0, 1.5, 2.1, etc...
         REPEAT_ACTION_MULT = 0.1
 
         # Major fitness points, this is very hard
-        WIN = 300
+        WIN = 10000
         # only slight fitness loss, but I want to encourage them to fight
         DRAW = -25
         # You lost, but % health will already take a big beating, so slight punishment
         # This avoids stacking loss too much that they are scared to fight at all
         LOSS = -200
         # So tired of this guy running off cliffs. Hes not gonna do that anymore
-        FALLING = -150
+        FALLING = -500
 
 
     class Margit:
