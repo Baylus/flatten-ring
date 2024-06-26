@@ -175,6 +175,15 @@ def get_tarnished_fitness(result):
     last_state = result["game_states"][-1]
     settings = FitnessSettings.Tarnished
     fitness = 0
+    details = {
+        "Margit missing health": 0,
+        "Proximity to Margit": 0,
+        "Distance Moved": 0,
+        "Repeated Action": 0,
+        "Game result": 0,
+        "Survival": 0,
+        "Falling": 0,
+    }
 
     # Reward for damaging % more the enemy than you got damaged
     # tarnished_percent = last_state["tarnished"]["state"]["health"] / last_state["tarnished"]["state"]["max_health"]
@@ -184,6 +193,7 @@ def get_tarnished_fitness(result):
     #     fitness += diff * 10
     margit_missing_health = last_state["margit"]["state"]["max_health"] - last_state["margit"]["state"]["health"]
     fitness += margit_missing_health * settings.DAMAGE_MULTIPLER
+    details["Margit missing health"] += margit_missing_health * settings.DAMAGE_MULTIPLER
 
     last_distance = None
     last_dist_traveled = None
@@ -198,18 +208,22 @@ def get_tarnished_fitness(result):
 
         dist = math.hypot(mx - tx, my - ty)
         # Reward for each frame
+        temp = 0
         if dist < settings.MIN_DISTANCE_FOR_MAX_POINTS:
-            fitness += settings.MAX_PROXIMITY_POINTS_PER_UPDATE
+            temp += settings.MAX_PROXIMITY_POINTS_PER_UPDATE
         else:
             # We are outside of the minimum distance, so scale points given based on how far away from this min distance
-            fitness += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
-
+            temp += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
+        fitness += temp
+        details["Proximity to Margit"] += temp
+        
         ### Reward for moving around
         curr_moved = last_state["tarnished"]["state"]["moved"]
         if last_distance and last_distance > dist:
             # Last update we closed some distance to the enemy, good deadpool
             if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
                 fitness += diff * settings.DIST_TRAVELED_MULT
+                details["Distance Moved"] += diff * settings.DIST_TRAVELED_MULT
 
         ### Penalty for choosing same actions as the last update
         curr_action = get_primary_action(last_state["tarnished"]["actions"])
@@ -219,12 +233,14 @@ def get_tarnished_fitness(result):
 
             # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
             fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
+            details["Repeated Action"] -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
         elif last_action and last_action == curr_action:
             # We did the same thing last update
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY
 
             # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
             fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
+            details["Repeated Action"] -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
         else:
             # We chose a new action! Lets take a bit off their penalty for it.
             repeat_action_penalty -= settings.NEW_ACTION_BONUS
@@ -233,29 +249,46 @@ def get_tarnished_fitness(result):
         last_distance = dist
         last_dist_traveled = curr_moved
     
+    # Game result
     if result["winner"] == "tarnished":
         # Major fitness points, this is very hard
         fitness += settings.WIN
+        details["Game result"] += settings.WIN
     elif result["winner"] == "draw":
         # only slight fitness loss, but I want to encourage them to fight
         fitness += settings.DRAW
+        details["Game result"] += settings.DRAW
     else:
         # You lost, but % health will already take a big beating, so slight punishment
         # This avoids stacking loss too much that they are scared to fight at all
         fitness += settings.LOSS
+        details["Game result"] += settings.LOSS
     
+    # Reward for rounds survived
     fitness += len(result["game_states"]) * settings.SURVIVAL_FACTOR
+    details["Survival"] += len(result["game_states"]) * settings.SURVIVAL_FACTOR
+
+    # Penalty for falling
     if "fall" in result["notes"]:
         # Don't fall into pits
         fitness += settings.FALLING
-    
-    return fitness
+        details["Falling"] += settings.FALLING
+
+    return fitness, details
 
 
 def get_margit_fitness(result):
     last_state = result["game_states"][-1]
     settings = FitnessSettings.Margit
     fitness = 0
+    details = {
+        "Health percent diff with enemy": 0,
+        "Proximity to Tarnished": 0,
+        "Distance Moved": 0,
+        "Distance Moved Closer to Tarnished": 0,
+        "Repeated Action": 0,
+        "Game result": 0,
+    }
 
     last_distance = None
     last_action = None
@@ -266,6 +299,7 @@ def get_margit_fitness(result):
         curr_moved = last_state["margit"]["state"]["moved"]
         if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
             fitness += diff * settings.DIST_TRAVELED_MULT
+            details["Distance Moved"] += diff * settings.DIST_TRAVELED_MULT
 
         # Reward Margit for proximity to Tarnished
         # Calculate proximity
@@ -276,15 +310,18 @@ def get_margit_fitness(result):
         # Reward for each frame
         if dist < settings.MIN_DISTANCE_FOR_MAX_POINTS:
             fitness += settings.MAX_PROXIMITY_POINTS_PER_UPDATE
+            details["Proximity to Tarnished"] += settings.MAX_PROXIMITY_POINTS_PER_UPDATE
         else:
             fitness += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
+            details["Proximity to Tarnished"] += (settings.MAX_PROXIMITY_POINTS_PER_UPDATE * settings.MIN_DISTANCE_FOR_MAX_POINTS) / dist
 
-        ### Reward for moving around
+        ### Reward for moving closer to Tarnished
         curr_moved = last_state["margit"]["state"]["moved"]
         if last_distance and last_distance > dist:
             # Last update we closed some distance to the enemy, good deadpool
             if last_dist_traveled and (diff := curr_moved - last_dist_traveled):
                 fitness += diff * settings.DIST_TRAVELED_MULT
+                details["Distance Moved Closer to Tarnished"] += diff * settings.DIST_TRAVELED_MULT
 
         ### Penalty for choosing same actions as the last update
         curr_action = get_primary_action(last_state["margit"]["actions"])
@@ -294,18 +331,19 @@ def get_margit_fitness(result):
 
             # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
             fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
+            details["Repeated Action"] -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
         elif last_action and last_action == curr_action:
             # We did the same thing last update
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY
 
             # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
             fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
+            details["Repeated Action"] -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
         else:
             # We chose a new action! Lets take a bit off their penalty for it.
             repeat_action_penalty -= settings.NEW_ACTION_BONUS
         
         # CONSIDER: Also giving a penalty for Margit choosing an attack two updates in a row
-
         last_action = curr_action
         last_distance = dist
         last_dist_traveled = curr_moved
@@ -316,19 +354,23 @@ def get_margit_fitness(result):
     diff = (margit_percent - tarnished_percent)
     # Now check which direction it is in, and weight it accordingly
     if diff < 0:
-        # NOTE: += because diff is already negative
+        # NOTE: += because diff is already negative, because math
         fitness += diff * 2 # Heavier losses if we lose more than if we gain more
+        details["Health percent diff with enemy"] += diff * 2 # Heavier losses if we lose more than if we gain more
     else:
-        fitness += diff
+        details["Health percent diff with enemy"] += diff
 
     if result["winner"] == "tarnished":
         # Major fitness points, Margit should not lose
         fitness += settings.LOSS
+        details["Game result"] += settings.LOSS
     elif result["winner"] == "draw":
         # Biggest draw loss on Margit, he should be pressuring Tarnished
         fitness += settings.DRAW
+        details["Game result"] += settings.DRAW
     else:
         # Margit's expected victory
         fitness += settings.WIN
+        details["Game result"] += settings.WIN
     
     return fitness

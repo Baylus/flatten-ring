@@ -321,6 +321,8 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
         "trainer": curr_trainer,
         "generation": curr_gen,
         "population": curr_pop,
+        f"{trainer_str(Entities.TARNISHED)}_fitness_details": 0,
+        f"{trainer_str(Entities.MARGIT)}_fitness_details": 0,
         "game_states": [],
     }
 
@@ -383,8 +385,12 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
         game_result["notes"] = "Margit died to: " + str(e)
     finally:
         # Record our game state
-        game_result[f"{trainer_str(Entities.TARNISHED)}_fitness"] = int(get_tarnished_fitness(game_result))
-        game_result[f"{trainer_str(Entities.MARGIT)}_fitness"] = int(get_margit_fitness(game_result))
+        score, details = get_tarnished_fitness(game_result)
+        game_result[f"{trainer_str(Entities.TARNISHED)}_fitness"] = int(score)
+        game_result[f"{trainer_str(Entities.TARNISHED)}_fitness_details"] = details
+        score, details = get_margit_fitness(game_result)
+        game_result[f"{trainer_str(Entities.MARGIT)}_fitness"] = int(score)
+        game_result[f"{trainer_str(Entities.MARGIT)}_fitness_details"] = details
 
         file_name = str(curr_pop) + f"_{curr_trainer}"
         file_name += ".json"
