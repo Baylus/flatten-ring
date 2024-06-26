@@ -372,9 +372,13 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
             if updates > MAX_UPDATES_PER_GAME:
                 game_result["notes"] = "Game stalemated"
                 running = False
-    except TarnishedDied:
+    except TarnishedDied as e:
         # Update winner
         game_result["winner"] = "margit"
+        if hasattr(e, 'message'):
+            game_result["notes"] = e.message
+        else:
+            game_result["notes"] = str(e)
         # Update the state of the last game tick for tarnished status
         game_result["game_states"][-1]["tarnished"]["state"] = tarnished.get_state()
     except MargitDied as e:
@@ -706,7 +710,7 @@ def draw_replay(game_data):
     curr_y_offset += 100
 
     draw_text(WIN, "Fitness Details: ", X, curr_y_offset, font_size=40, color=(255, 0, 0))
-    for detail, val in game_data[f"{trainer_str(Entities.MARGIT)}_fitness_details"].items():
+    for detail, val in game_data[f"{trainer}_fitness_details"].items():
         curr_y_offset += 25
         draw_text(WIN, f"   {detail}: " + str(int(val)), X, curr_y_offset, font_size=30, color=(255, 0, 0))
 

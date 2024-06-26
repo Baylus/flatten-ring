@@ -253,8 +253,8 @@ def get_tarnished_fitness(result):
         last_dist_traveled = curr_moved
     
     # Reward for all the unique actions taken.
-    fitness += len(unique_actions) * UNIQUE_ACTION_REWARD
-    details["Unique Actions"] += len(unique_actions) * UNIQUE_ACTION_REWARD
+    fitness += len(unique_actions) * settings.UNIQUE_ACTION_REWARD
+    details["Unique Actions"] += len(unique_actions) * settings.UNIQUE_ACTION_REWARD
 
     # Game result
     if result["winner"] == "tarnished":
