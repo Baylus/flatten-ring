@@ -1,3 +1,4 @@
+from enum import Enum
 import pygame
 
 from utilities import calculate_new_xy
@@ -5,6 +6,13 @@ from config.settings import *
 
 from .exceptions import CharacterDied
 from .actions import Actions
+
+class Entities(str, Enum):
+    TARNISHED = "Tarnished"
+    MARGIT = "Margit"
+
+def trainer_str(trainer: Entities):
+    return str(trainer.value)
 
 class Entity():
     name: str

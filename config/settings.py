@@ -3,7 +3,6 @@ from enum import Enum
 
 WIDTH, HEIGHT = 2000, 1200
 TPS = 1000 # Ticks per second
-REPLAY_TPS = 15 # Ticks for replays
 
 HEALTH_BAR_WIDTHS = 100
 HEALTH_BAR_HEIGHTS = 20
@@ -17,6 +16,13 @@ FITNESS_VERSION = "V0.9"
 # Load entity images
 TARNISHED_IMAGE = pygame.image.load("assets/tarnished.png")
 MARGIT_IMAGE = pygame.image.load("assets/margit.png")
+
+#### REPLAYS
+REPLAY_TPS = 15 # Ticks for replays
+# Used when running replay functionality to make sure we dont accidentally clean our data
+SAVE_GAMESTATES = False
+DEFAULT_NUM_BEST_GENS = 5 # Default for number of best generations that 
+
 
 ##### NEAT STUFF
 
