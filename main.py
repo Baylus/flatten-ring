@@ -9,6 +9,7 @@ import pygame
 import shutil
 import string
 import sys
+import time
 
 
 from fitness import get_tarnished_fitness, get_margit_fitness
@@ -50,7 +51,7 @@ parser.add_argument("-c", "--clean", dest="clean", action="store_false", default
 
 args = parser.parse_args()
 
-replays = True if any([args.replay, args.best, args.gens]) else False
+replays = True if any([args.replay, args.best, args.gens != None]) else False
 
 ########## STARTUP CLEANUP
 if not replays and args.clean and not SAVE_GAMESTATES:
@@ -216,22 +217,25 @@ def process_replays():
         raise ValueError("We didn't find any generations that we could work according to the input parameters")
 
     # determine which trainers that we need to acquire bests from
-    ents = [trainer_str(Entities.TARNISHED), trainer_str(Entities.MARGIT)]
+    ents = [Entities.TARNISHED, Entities.MARGIT]
     if args.trainer:
         # We are specifying one
         if args.trainer == trainer_str(Entities.TARNISHED).lower():
             # We are only training Tarnished
-            ents = [trainer_str(Entities.TARNISHED)]
+            ents = [Entities.TARNISHED]
         else:
-            ents = [trainer_str(Entities.MARGIT)]
+            ents = [Entities.MARGIT]
     # Make the names readable
-    ents = [str(s) for s in ents]
-    
-    # Get best segments
+    ents = [trainer_str(s) for s in ents]
+    gens_needed.sort()
 
     # Replay best segments from trainer(s)
+    for trainer in ents:
+        # CONSIDER: Which is more important to go forwards or backwards in generations
+        # Going to go backwards and see what I like/dont
+        for gen in reversed(gens_needed):
+            replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
 
-    pass
 
 # Define the fitness function
 def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
@@ -674,18 +678,19 @@ def draw_replay(game_data):
     trainer = curr_trainer or game_data["trainer"]
     curr_y_offset = 200
     if trainer == trainer_str(Entities.TARNISHED):
-        draw_text(WIN, "Tarnished Fitness: " + str(game_data[f"{trainer_str(Entities.TARNISHED)}_fitness"]), 200, curr_y_offset, font_size=30, color=(255, 0, 0))
+        draw_text(WIN, "Tarnished Fitness: " + str(game_data[f"{trainer_str(Entities.TARNISHED)}_fitness"]), 200, curr_y_offset, font_size=40, color=(255, 0, 0))
     else:
-        draw_text(WIN, "Margit Fitness: " + str(game_data[f"{trainer_str(Entities.MARGIT)}_fitness"]), 200, curr_y_offset, font_size=30, color=(255, 0, 0))
+        draw_text(WIN, "Margit Fitness: " + str(game_data[f"{trainer_str(Entities.MARGIT)}_fitness"]), 200, curr_y_offset, font_size=40, color=(255, 0, 0))
     
     # Generation meta stats for best replays
-    curr_y_offset += 50
+    curr_y_offset += 25
     if gen_best:
+        draw_text(WIN, "Best (Generation): " + str(gen_best), 200, curr_y_offset, font_size=30, color=(255, 0, 0))
         curr_y_offset += 25
-        draw_text(WIN, "\tBest: " + str(game_data[f"{str(gen_best)}_fitness"]), 200, curr_y_offset, font_size=20, color=(255, 0, 0))
     if gen_average:
-        draw_text(WIN, "\tBest: " + str(game_data[f"{str(gen_average)}_fitness"]), 200, curr_y_offset, font_size=20, color=(255, 0, 0))
+        draw_text(WIN, "Avg. (Generation): " + str(gen_average), 200, curr_y_offset, font_size=30, color=(255, 0, 0))
         curr_y_offset += 25
+    curr_y_offset += 25
 
 
     draw_text(WIN, "Generation: " + str(curr_gen or game_data["generation"]), 200, curr_y_offset, font_size=30, color=(255, 0, 0))
@@ -705,17 +710,22 @@ def replay_game(game_data: dict):
     tarnished.give_target(margit)
     margit.give_target(tarnished)
     
+    time.sleep(0.2) # Give me time to stop pressing space before next game
     # Main game loop
     running = True
     clock = pygame.time.Clock()
     for frame in game_data["game_states"]:
-        print("Running frame")
         clock.tick(REPLAY_TPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
                 break
         if not running:
+            break
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE]:
+            # Skip this game now.
             break
 
         tarn = frame["tarnished"]["state"]
@@ -748,11 +758,10 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = 0):
 
     Args:
         gen (int): Which generation to display
-        num_best (int): How many of the top performers to show
+        num_best (int): How many of the top performers to show. If 0, show all of generation (not recommended)
         trainer (str): Which trainer we are interested in.
                        Very specific we need the same name as is written out to file names
     """
-    # TODO: This
     global curr_gen
     global curr_pop
     global curr_trainer
@@ -773,36 +782,37 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = 0):
     runs_processed: list[tuple[int, str]] = []
     for run_file in gen_runs:
         # Get run data
-        with open(run_file) as json_file:
+        with open(f"{gen_dir}{run_file}") as json_file:
             game_data = json.load(json_file)
         
         # Process data and keep a record of it for retrieval
-        this_fit = game_data[f"{trainer}_fitness"]
+        this_fit = int(game_data[f"{trainer}_fitness"])
         fitness_sum += this_fit
         runs_processed.append((this_fit, run_file))
     
     # Now we have the entire list of fitness scores for the generation
     gen_average = fitness_sum / len(runs_processed) # Log this generations average for display
-    gen_best = runs_processed[-1][0] # Get the best fitness
 
+    # Get ready to review runs
+    runs_processed.sort()
+    gen_best = runs_processed[-1][0] # Get the best fitness
     # Pretty proud of this. If num best is 0, then we process whole list, because we splice whole list. ([0:])
     # We put it in range because we are going to be popping elements off the back for efficiency, because we are starting with the best
     # then working our way down.
     for _ in range(len(runs_processed[-num_best:])):
         # Get the next run to replay
         fit, file = runs_processed.pop()
-        with open(file) as json_file:
+        with open(f"{gen_dir}{file}") as json_file:
             game_data = json.load(json_file)
         curr_pop = game_data["population"]
 
         # Now replay the game
         replay_game(game_data)
-    
-    pass
+
 
 if __name__ == "__main__":
     if replays:
-        # TODO: This
+        print("We are replaying previous games")
         process_replays()
     else:
         main()

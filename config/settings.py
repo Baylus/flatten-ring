@@ -20,7 +20,7 @@ MARGIT_IMAGE = pygame.image.load("assets/margit.png")
 #### REPLAYS
 REPLAY_TPS = 15 # Ticks for replays
 # Used when running replay functionality to make sure we dont accidentally clean our data
-SAVE_GAMESTATES = False
+SAVE_GAMESTATES = True
 DEFAULT_NUM_BEST_GENS = 5 # Default for number of best generations that 
 
 
