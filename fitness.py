@@ -183,6 +183,7 @@ def get_tarnished_fitness(result):
         "Proximity to Margit": 0,
         "Distance Moved": 0,
         "Repeated Action": 0,
+        "Unique Actions": 0,
         "Game result": 0,
         "Survival": 0,
         "Falling": 0,
