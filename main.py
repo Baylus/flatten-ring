@@ -682,27 +682,33 @@ def draw_replay(game_data):
     margit.draw(WIN)
 
     trainer = curr_trainer or game_data["trainer"]
+    X = 160
     curr_y_offset = 200
     if trainer == trainer_str(Entities.TARNISHED):
-        draw_text(WIN, "Tarnished Fitness: " + str(game_data[f"{trainer_str(Entities.TARNISHED)}_fitness"]), 200, curr_y_offset, font_size=40, color=(255, 0, 0))
+        draw_text(WIN, "Tarnished Fitness: " + str(game_data[f"{trainer_str(Entities.TARNISHED)}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
     else:
-        draw_text(WIN, "Margit Fitness: " + str(game_data[f"{trainer_str(Entities.MARGIT)}_fitness"]), 200, curr_y_offset, font_size=40, color=(255, 0, 0))
+        draw_text(WIN, "Margit Fitness: " + str(game_data[f"{trainer_str(Entities.MARGIT)}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
     
     # Generation meta stats for best replays
     curr_y_offset += 25
     if gen_best:
-        draw_text(WIN, "Best (Generation): " + str(gen_best), 200, curr_y_offset, font_size=30, color=(255, 0, 0))
+        draw_text(WIN, "Best (Generation): " + str(gen_best), X, curr_y_offset, font_size=30, color=(255, 0, 0))
         curr_y_offset += 25
     if gen_average:
-        draw_text(WIN, "Avg. (Generation): " + str(gen_average), 200, curr_y_offset, font_size=30, color=(255, 0, 0))
+        draw_text(WIN, "Avg. (Generation): " + str(gen_average), X, curr_y_offset, font_size=30, color=(255, 0, 0))
         curr_y_offset += 25
     curr_y_offset += 25
 
 
-    draw_text(WIN, "Generation: " + str(curr_gen or game_data["generation"]), 200, curr_y_offset, font_size=30, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(curr_gen or game_data["generation"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
     curr_y_offset += 50
-    draw_text(WIN, "Population: " + str(curr_pop or game_data["population"]), 200, curr_y_offset, font_size=30, color=(255, 0, 0))
-    curr_y_offset += 50
+    draw_text(WIN, "Population: " + str(curr_pop or game_data["population"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
+    curr_y_offset += 100
+
+    draw_text(WIN, "Fitness Details: ", X, curr_y_offset, font_size=40, color=(255, 0, 0))
+    for detail, val in game_data[f"{trainer_str(Entities.MARGIT)}_fitness_details"].items():
+        curr_y_offset += 25
+        draw_text(WIN, f"   {detail}: " + str(int(val)), X, curr_y_offset, font_size=30, color=(255, 0, 0))
 
     pygame.display.update()
 
@@ -796,6 +802,8 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = 0):
         fitness_sum += this_fit
         runs_processed.append((this_fit, run_file))
     
+    if not runs_processed:
+        raise ValueError(f"No runs to process for trainer {trainer}")
     # Now we have the entire list of fitness scores for the generation
     gen_average = fitness_sum / len(runs_processed) # Log this generations average for display
 

@@ -373,4 +373,4 @@ def get_margit_fitness(result):
         fitness += settings.WIN
         details["Game result"] += settings.WIN
     
-    return fitness
+    return fitness, details
