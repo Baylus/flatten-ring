@@ -17,6 +17,9 @@ class FitnessSettings:
         # for any given actions. e.g. say we have 10 repeated actions with penalty of 1 and 0.1 mult. We wouldnt end up with 1 total
         # we would have .1 from first update, .3 for second (2 penalties * MULT + 0.1 existing mult hit) .6, 1.0, 1.5, 2.1, etc...
         REPEAT_ACTION_MULT = 0.1
+        
+        # Linear reward for each unique action taken during the game
+        UNIQUE_ACTION_REWARD = 100
 
         # Major fitness points, this is very hard
         WIN = 10000
@@ -200,6 +203,7 @@ def get_tarnished_fitness(result):
     last_action: Actions = None
     # Increasing penalty for repeated actions
     repeat_action_penalty = 0
+    unique_actions = set()
     for frame in result["game_states"]:
         ### Reward Tarnished for proximity to Margit
         # Calculate proximity
@@ -230,25 +234,28 @@ def get_tarnished_fitness(result):
         if not curr_action:
             # We really don't want them not moving
             repeat_action_penalty += settings.REPEAT_ACTION_PENALTY * 2
-
-            # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
-            fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
-            details["Repeated Action"] -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
-        elif last_action and last_action == curr_action:
-            # We did the same thing last update
-            repeat_action_penalty += settings.REPEAT_ACTION_PENALTY
-
-            # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
-            fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
-            details["Repeated Action"] -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
         else:
-            # We chose a new action! Lets take a bit off their penalty for it.
-            repeat_action_penalty -= settings.NEW_ACTION_BONUS
+            unique_actions.add(curr_action)
+            if last_action and last_action == curr_action:
+                # We did the same thing last update
+                repeat_action_penalty += settings.REPEAT_ACTION_PENALTY
+            else:
+                # We chose a new action! Lets take a bit off their penalty for it.
+                # Either cut the current penalty in half, or increment the current penalty, whichever is more beneficial
+                repeat_action_penalty = max(repeat_action_penalty / 2, repeat_action_penalty - settings.NEW_ACTION_BONUS)
+
+        # CONSIDER: Moving this penalty out of this to punish every update even if this one wasnt a repeat
+        fitness -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
+        details["Repeated Action"] -= repeat_action_penalty * settings.REPEAT_ACTION_MULT
 
         last_action = curr_action
         last_distance = dist
         last_dist_traveled = curr_moved
     
+    # Reward for all the unique actions taken.
+    fitness += len(unique_actions) * UNIQUE_ACTION_REWARD
+    details["Unique Actions"] += len(unique_actions) * UNIQUE_ACTION_REWARD
+
     # Game result
     if result["winner"] == "tarnished":
         # Major fitness points, this is very hard
