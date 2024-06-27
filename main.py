@@ -94,6 +94,7 @@ margit_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduc
                             MARGIT_NEAT_PATH)
 
 # Create the population
+# TODO: Move this into the main function and actually utilize the checkpoint data when resuming.
 population_tarnished = neat.Population(tarnished_neat_config)
 population_margit = neat.Population(margit_neat_config)
 
@@ -245,6 +246,7 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
     curr_pop = 0
     curr_gen += 1
     pathlib.Path(f"{GAMESTATES_PATH}/gen_{curr_gen}").mkdir(parents=True, exist_ok=True)
+    print(f"Training generation {curr_gen} for {curr_trainer}")
 
     if type(genomes_tarnished) == dict:
         genomes_tarnished = list(genomes_tarnished.items())
@@ -266,8 +268,11 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         player_fitness, enemy_fitness = play_game(player_net, enemy_net)
         
         # Assign fitness to each genome
+        print(f"For generation {curr_gen}, population {curr_pop}:")
         genome_tarnished.fitness = player_fitness
+        print(f"\tTarnished's fitness is {genome_tarnished.fitness}")
         genome_margit.fitness = enemy_fitness
+        print(f"\Margit's fitness is {genome_margit.fitness}")
 
         assert genome_tarnished.fitness is not None
         assert genome_margit.fitness is not None
