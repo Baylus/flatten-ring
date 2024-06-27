@@ -16,7 +16,7 @@ from fitness import get_tarnished_fitness, get_margit_fitness
 
 from entities.tarnished import Tarnished
 from entities.margit import Margit
-from entities.base import Entities, trainer_str
+from entities.base import Entities, trainer_str, TARNISHED_NAME, MARGIT_NAME
 from entities.actions import Actions
 from entities.exceptions import *
 
@@ -41,7 +41,7 @@ If more than 2 generations are specified, then only those generations will be pr
 parser.add_argument("-g", "--generations", dest="gens", default=None, type=int, nargs='*',
                     help=generations_help)
 parser.add_argument("-t", "--trainer", dest="trainer", default=None, type=str, 
-                    choices=[trainer_str(Entities.TARNISHED).lower(), trainer_str(Entities.MARGIT).lower()],
+                    choices=[TARNISHED_NAME.lower(), MARGIT_NAME.lower()],
                     help="Specify which trainer to show for the best replays. If None provided, will train both")
 parser.add_argument("-q", "--quiet",
                     action="store_true", dest="quiet", default=False,
@@ -169,10 +169,10 @@ def main():
         for gen in range(start_gen_nums[0], GENERATIONS, TRAINING_INTERVAL):
             # Run NEAT for player and enemy separately
             curr_gen = gen
-            curr_trainer = trainer_str(Entities.TARNISHED)
+            curr_trainer = TARNISHED_NAME
             winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
             curr_gen = gen
-            curr_trainer = trainer_str(Entities.MARGIT)
+            curr_trainer = MARGIT_NAME
             winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=TRAINING_INTERVAL)
     except Exception as e:
         with open("debug.txt", "w") as f:
@@ -220,7 +220,7 @@ def process_replays():
     ents = [Entities.TARNISHED, Entities.MARGIT]
     if args.trainer:
         # We are specifying one
-        if args.trainer == trainer_str(Entities.TARNISHED).lower():
+        if args.trainer == TARNISHED_NAME.lower():
             # We are only training Tarnished
             ents = [Entities.TARNISHED]
         else:
@@ -234,6 +234,7 @@ def process_replays():
         # CONSIDER: Which is more important to go forwards or backwards in generations
         # Going to go backwards and see what I like/dont
         for gen in reversed(gens_needed):
+            print(f"Replaying game from {trainer}")
             replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
 
 
@@ -313,16 +314,16 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
 
     game_result = { # For recording all other elements and storing final output of logging function
         "winner": "draw", # Default incase something fails
-        f"{trainer_str(Entities.TARNISHED)}_fitness": 0,
-        f"{trainer_str(Entities.MARGIT)}_fitness": 0,
+        f"{TARNISHED_NAME}_fitness": 0,
+        f"{MARGIT_NAME}_fitness": 0,
         "game_version": GAME_VERSION,
         "fitness_version": FITNESS_VERSION,
         "notes": "",
         "trainer": curr_trainer,
         "generation": curr_gen,
         "population": curr_pop,
-        f"{trainer_str(Entities.TARNISHED)}_fitness_details": 0,
-        f"{trainer_str(Entities.MARGIT)}_fitness_details": 0,
+        f"{TARNISHED_NAME}_fitness_details": 0,
+        f"{MARGIT_NAME}_fitness_details": 0,
         "game_states": [],
     }
 
@@ -390,11 +391,11 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
     finally:
         # Record our game state
         score, details = get_tarnished_fitness(game_result)
-        game_result[f"{trainer_str(Entities.TARNISHED)}_fitness"] = int(score)
-        game_result[f"{trainer_str(Entities.TARNISHED)}_fitness_details"] = details
+        game_result[f"{TARNISHED_NAME}_fitness"] = int(score)
+        game_result[f"{TARNISHED_NAME}_fitness_details"] = details
         score, details = get_margit_fitness(game_result)
-        game_result[f"{trainer_str(Entities.MARGIT)}_fitness"] = int(score)
-        game_result[f"{trainer_str(Entities.MARGIT)}_fitness_details"] = details
+        game_result[f"{MARGIT_NAME}_fitness"] = int(score)
+        game_result[f"{MARGIT_NAME}_fitness_details"] = details
 
         file_name = str(curr_pop) + f"_{curr_trainer}"
         file_name += ".json"
@@ -402,7 +403,7 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
         with open(f"{GAMESTATES_PATH}/gen_{curr_gen}/{file_name}", 'w') as f:
             json.dump(game_result, f, indent=4)
     
-    return game_result[f"{trainer_str(Entities.TARNISHED)}_fitness"], game_result[f"{trainer_str(Entities.MARGIT)}_fitness"]
+    return game_result[f"{TARNISHED_NAME}_fitness"], game_result[f"{MARGIT_NAME}_fitness"]
 
 ### Actions ###
 
@@ -688,10 +689,10 @@ def draw_replay(game_data):
     trainer = curr_trainer or game_data["trainer"]
     X = 160
     curr_y_offset = 200
-    if trainer == trainer_str(Entities.TARNISHED):
-        draw_text(WIN, "Tarnished Fitness: " + str(game_data[f"{trainer_str(Entities.TARNISHED)}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
+    if trainer == TARNISHED_NAME:
+        draw_text(WIN, "Tarnished Fitness: " + str(game_data[f"{TARNISHED_NAME}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
     else:
-        draw_text(WIN, "Margit Fitness: " + str(game_data[f"{trainer_str(Entities.MARGIT)}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
+        draw_text(WIN, "Margit Fitness: " + str(game_data[f"{MARGIT_NAME}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
     
     # Generation meta stats for best replays
     curr_y_offset += 25
@@ -824,6 +825,7 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = 0):
             game_data = json.load(json_file)
         curr_pop = game_data["population"]
 
+        print(f"Replaying {file}")
         # Now replay the game
         replay_game(game_data)
 

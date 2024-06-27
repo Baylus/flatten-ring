@@ -14,6 +14,9 @@ class Entities(str, Enum):
 def trainer_str(trainer: Entities):
     return str(trainer.value)
 
+TARNISHED_NAME = trainer_str(Entities.TARNISHED)
+MARGIT_NAME = trainer_str(Entities.MARGIT)
+
 class Entity():
     name: str
     health: int = 100
