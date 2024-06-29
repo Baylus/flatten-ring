@@ -139,24 +139,31 @@ def main():
         # first to catch up to tarnished (incase a run is stopped during margit's training, meaning he will be
         # behind in training one full cycle)
         start_gen_nums = [0, 0]
+        checkpointer_tarnished = None
+        checkpointer_margit = None
         if RESTORE_CHECKPOINTS and not args.reset:
             # We gotta find the right run to restore
             existing_checkpoint_files = os.listdir(this_runs_checkpoints)
             print(f"This is our existing checkpoints from {this_runs_checkpoints}:\n{existing_checkpoint_files}")
-            if existing_checkpoint_files: 
-
+            if existing_checkpoint_files:
+                # Since we have checkpoints, we need to actually initialize the population with them.
+                # TODO: Don't use the one indexed checkpointer for resuming checkpoints!!!!!!!!! Causes them to be off by one
                 tarn_checkpoint, start_gen_nums[0] = get_newest_checkpoint_file(existing_checkpoint_files, TARNISHED_CHECKPOINT_PREFIX)
-                checkpointer_tarnished = OneIndexedCheckpointer.restore_checkpoint(f"{this_runs_checkpoints}/{tarn_checkpoint}")
+                population_tarnished = neat.Checkpointer.restore_checkpoint(f"{this_runs_checkpoints}/{tarn_checkpoint}")
                 print(f"We are using {tarn_checkpoint} for tarnished")
                 margit_checkpoint, start_gen_nums[1] = get_newest_checkpoint_file(existing_checkpoint_files, MARGIT_CHECKPOINT_PREFIX)
-                checkpointer_margit = OneIndexedCheckpointer.restore_checkpoint(f"{this_runs_checkpoints}/{margit_checkpoint}")
+                population_margit = neat.Checkpointer.restore_checkpoint(f"{this_runs_checkpoints}/{margit_checkpoint}")
                 print(f"We are using {margit_checkpoint} for margit")
+                checkpointer_tarnished = neat.Checkpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{TARNISHED_CHECKPOINT_PREFIX}')
+                checkpointer_margit = neat.Checkpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
             else:
                 # We didn't have any existing checkpoints within the run's folder
                 print("Warning, attempted to restore checkpoints, but no checkpoints were present. If this was expected, disregard.")
 
-        checkpointer_tarnished = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{TARNISHED_CHECKPOINT_PREFIX}')
-        checkpointer_margit = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
+        if not checkpointer_tarnished:
+            # We are using new checkpoints, either because we aren't resuming previous, or no previous was found. Use 1 indexed runs
+            checkpointer_tarnished = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{TARNISHED_CHECKPOINT_PREFIX}')
+            checkpointer_margit = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
         
         population_tarnished.add_reporter(neat.StdOutReporter(True))
         population_tarnished.add_reporter(neat.StatisticsReporter())
@@ -272,7 +279,7 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         genome_tarnished.fitness = player_fitness
         print(f"\tTarnished's fitness is {genome_tarnished.fitness}")
         genome_margit.fitness = enemy_fitness
-        print(f"\Margit's fitness is {genome_margit.fitness}")
+        print(f"\tMargit's fitness is {genome_margit.fitness}")
 
         assert genome_tarnished.fitness is not None
         assert genome_margit.fitness is not None
