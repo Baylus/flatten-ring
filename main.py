@@ -182,7 +182,7 @@ def main():
             curr_gen = gen
             curr_trainer = MARGIT_NAME
             winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=TRAINING_INTERVAL)
-    except Exception as e:
+    except BaseException as e:
         with open("debug.txt", "w") as f:
             f.write(str(e))
         raise
@@ -228,11 +228,11 @@ def process_replays():
     ents = [Entities.TARNISHED, Entities.MARGIT]
     if args.trainer:
         # We are specifying one
-        if args.trainer == TARNISHED_NAME.lower():
+        if args.trainer == MARGIT_NAME.lower():
             # We are only training Tarnished
-            ents = [Entities.TARNISHED]
-        else:
             ents = [Entities.MARGIT]
+        else:
+            ents = [Entities.TARNISHED]
     # Make the names readable
     ents = [trainer_str(s) for s in ents]
     gens_needed.sort()
@@ -241,9 +241,13 @@ def process_replays():
     for trainer in ents:
         # CONSIDER: Which is more important to go forwards or backwards in generations
         # Going to go backwards and see what I like/dont
-        for gen in reversed(gens_needed):
-            print(f"Replaying game from {trainer}")
-            replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
+        try:
+            for gen in reversed(gens_needed):
+                print(f"Replaying game from {trainer}")
+                replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
+        except KeyboardInterrupt:
+            # We can use this to skip to margit's training incase we are done with tarnished
+            pass
 
 
 # Define the fitness function
@@ -778,7 +782,7 @@ def replay_file(replay_file: str):
     replay_game(game_data)
 
 
-def replay_best_in_gen(gen: int, trainer: str, num_best = 0):
+def replay_best_in_gen(gen: int, trainer: str, num_best = DEFAULT_NUM_BEST_GENS):
     """Replay the best within a specific generation
 
     We should separate out the games where the trainer is the active one being trained.
