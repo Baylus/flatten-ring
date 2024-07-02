@@ -147,7 +147,6 @@ def main():
             print(f"This is our existing checkpoints from {this_runs_checkpoints}:\n{existing_checkpoint_files}")
             if existing_checkpoint_files:
                 # Since we have checkpoints, we need to actually initialize the population with them.
-                # TODO: Don't use the one indexed checkpointer for resuming checkpoints!!!!!!!!! Causes them to be off by one
                 tarn_checkpoint, start_gen_nums[0] = get_newest_checkpoint_file(existing_checkpoint_files, TARNISHED_CHECKPOINT_PREFIX)
                 population_tarnished = neat.Checkpointer.restore_checkpoint(f"{this_runs_checkpoints}/{tarn_checkpoint}")
                 print(f"We are using {tarn_checkpoint} for tarnished")
@@ -162,6 +161,8 @@ def main():
 
         if not checkpointer_tarnished:
             # We are using new checkpoints, either because we aren't resuming previous, or no previous was found. Use 1 indexed runs
+            print("we are using new checkpoints")
+            # time.sleep(1)
             checkpointer_tarnished = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{TARNISHED_CHECKPOINT_PREFIX}')
             checkpointer_margit = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
         
@@ -279,11 +280,12 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         player_fitness, enemy_fitness = play_game(player_net, enemy_net)
         
         # Assign fitness to each genome
-        print(f"For generation {curr_gen}, population {curr_pop}:")
         genome_tarnished.fitness = player_fitness
-        print(f"\tTarnished's fitness is {genome_tarnished.fitness}")
         genome_margit.fitness = enemy_fitness
-        print(f"\tMargit's fitness is {genome_margit.fitness}")
+        if not args.quiet:
+            print(f"For generation {curr_gen}, population {curr_pop}:")
+            print(f"\tTarnished's fitness is {genome_tarnished.fitness}")
+            print(f"\tMargit's fitness is {genome_margit.fitness}")
 
         assert genome_tarnished.fitness is not None
         assert genome_margit.fitness is not None
