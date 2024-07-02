@@ -106,6 +106,8 @@ def main():
     global curr_pop
     global curr_gen
     global curr_trainer
+    global population_tarnished
+    global population_margit
     
     # Add reporters, including a Checkpointer
     if CACHE_CHECKPOINTS:
