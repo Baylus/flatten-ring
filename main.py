@@ -267,6 +267,8 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
     if type(genomes_margit) == dict:
         genomes_margit = list(genomes_margit.items())
 
+    # TODO: This is all probably overwriting previous instances of the training.
+    # e.g. margit pop 5 is overwriting tarnished pop 5 here. Unless I am missing something
     # Initializing everything to 0 and not None
     for _, genome in genomes_tarnished:
         genome.fitness = 0
@@ -281,6 +283,7 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         # Run the simulation
         player_fitness, enemy_fitness = play_game(player_net, enemy_net)
         
+        # TODO: See above
         # Assign fitness to each genome
         genome_tarnished.fitness = player_fitness
         genome_margit.fitness = enemy_fitness
