@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import concurrent.futures
 import datetime as dt
 import json
 import math
@@ -48,6 +49,10 @@ parser.add_argument("-q", "--quiet",
                     help="don't print status messages to stdout. Unused")
 parser.add_argument("-c", "--clean", dest="clean", action="store_false", default=True,
                     help="Should we clean up our previous gamestates?")
+parser.add_argument("-l", "--parallel", dest="parallel", action="store_true", default=False,
+                    help="Should we run parallel instances of the game simulation?")
+parser.add_argument("-d", "--hide", dest="hide", action="store_true", default=False,
+                    help="Should we hide the game by not drawing the entities?")
 
 args = parser.parse_args()
 
@@ -82,8 +87,6 @@ BG = pygame.image.load("assets/stage.png")
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Flatten Ring")
 
-tarnished = None
-margit = None
 
 tarnished_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
                             neat.DefaultSpeciesSet, neat.DefaultStagnation,
@@ -236,7 +239,6 @@ def process_replays():
         for gen in reversed(gens_needed):
             replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
 
-
 # Define the fitness function
 def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
     global curr_gen
@@ -249,20 +251,51 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         genomes_tarnished = list(genomes_tarnished.items())
     if type(genomes_margit) == dict:
         genomes_margit = list(genomes_margit.items())
-
+    
     # Initializing everything to 0 and not None
     for _, genome in genomes_tarnished:
         genome.fitness = 0
     for _, genome in genomes_margit:
         genome.fitness = 0
 
-    for (genome_id_player, genome_tarnished), (genome_id_enemy, genome_margit) in zip(genomes_tarnished, genomes_margit):
-        # Create separate neural networks for player and enemy
-        player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
-        enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
-        
-        # Run the simulation
-        player_fitness, enemy_fitness = play_game(player_net, enemy_net)
+    # For parallel results
+    # [tarn_genome_id][margit_genome_id] -> results(tarnished_fitness, margit_fitness)
+    results: dict[int, dict[int, tuple[int, int]]] = {}
+    if args.parallel:
+        # We need to execute the training in parallel
+        # Create a process pool for parallel execution
+        futures = []
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
+                curr_pop += 1
+                net_tarnished = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
+                net_margit = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
+                
+                # Schedule the game simulation to run in parallel
+                future = executor.submit(play_game, net_tarnished, net_margit, curr_pop)
+                futures.append((future, genome_id_tarnished, genome_id_margit))
+
+            # Collect results as they complete
+            for future, genome_id_tarnished, genome_id_margit in futures:
+                result = future.result()
+                if genome_id_tarnished not in results:
+                    results[genome_id_tarnished] = {}
+                results[genome_id_tarnished][genome_id_margit] = result
+    
+    
+    for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
+        if results:
+            # We already did parallel execution, just distribute the results
+            player_fitness, enemy_fitness = results[genome_id_tarnished][genome_id_margit]
+        else:
+            # We did not get results already, go ahead and run the sim
+            # Create separate neural networks for player and enemy
+            player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
+            enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
+            
+            # Run the simulation
+            curr_pop += 1 # Make sure population matches
+            player_fitness, enemy_fitness = play_game(player_net, enemy_net)
         
         # Assign fitness to each genome
         genome_tarnished.fitness = player_fitness
@@ -271,16 +304,19 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         assert genome_tarnished.fitness is not None
         assert genome_margit.fitness is not None
 
+
 def draw_text(surface, text, x, y, font_size=20, color=(255, 255, 255)):
     font = pygame.font.SysFont(None, font_size)
     text_surface = font.render(text, True, color)
     surface.blit(text_surface, (x, y))
 
-def draw():
+def draw(tarnished: Tarnished, margit: Margit):
     WIN.blit(BG, (0,0))
 
-    tarnished.draw(WIN)
-    margit.draw(WIN)
+    if tarnished:
+        tarnished.draw(WIN)
+    if margit:
+        margit.draw(WIN)
 
     # Draw the name below the health bar
     draw_text(WIN, "Trainer: " + str(curr_trainer), 200, 200, font_size=40, color=(255, 0, 0))
@@ -289,7 +325,8 @@ def draw():
 
     pygame.display.update()
 
-def play_game(tarnished_net, margit_net) -> tuple[int]:
+
+def play_game(tarnished_net, margit_net, pop = curr_pop) -> tuple[int]:
     # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
@@ -302,10 +339,6 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
     game states, the current game version, the fitness version,
     the winner of the match, and the total fitness for each side.
     """
-    global tarnished
-    global margit
-    global curr_pop
-    curr_pop += 1
 
     # Reset the npcs
     tarnished = Tarnished()
@@ -320,7 +353,7 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
         "notes": "",
         "trainer": curr_trainer,
         "generation": curr_gen,
-        "population": curr_pop,
+        "population": pop,
         f"{trainer_str(Entities.TARNISHED)}_fitness_details": 0,
         f"{trainer_str(Entities.MARGIT)}_fitness_details": 0,
         "game_states": [],
@@ -364,7 +397,8 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
             tarnished.update()
             margit.update()
 
-            draw()
+            if not args.hide:
+                draw(tarnished, margit)
             
             game_result["game_states"].append(curr_state)
             updates += 1
@@ -392,7 +426,7 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
         game_result[f"{trainer_str(Entities.MARGIT)}_fitness"] = int(score)
         game_result[f"{trainer_str(Entities.MARGIT)}_fitness_details"] = details
 
-        file_name = str(curr_pop) + f"_{curr_trainer}"
+        file_name = str(pop) + f"_{curr_trainer}"
         file_name += ".json"
         file_name = file_name.replace(":", "_")
         with open(f"{GAMESTATES_PATH}/gen_{curr_gen}/{file_name}", 'w') as f:

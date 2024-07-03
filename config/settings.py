@@ -45,3 +45,4 @@ TARNISHED_CHECKPOINT_PREFIX = "neat-checkpoint-tarnished-"
 MARGIT_CHECKPOINT_PREFIX = "neat-checkpoint-margit-"
 
 SILENT = True
+PARALLEL_OVERRIDE = False
