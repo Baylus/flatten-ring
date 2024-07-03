@@ -41,9 +41,14 @@ CACHE_CHECKPOINTS = True
 CHECKPOINT_INTERVAL = 10
 RESTORE_CHECKPOINTS = True
 
+### Parallel stuff
+PARALLEL_OVERRIDE = False
+MAX_WORKERS = 2
+###
+
+
 TARNISHED_CHECKPOINT_PREFIX = "neat-checkpoint-tarnished-"
 MARGIT_CHECKPOINT_PREFIX = "neat-checkpoint-margit-"
 
 SILENT = True
-PARALLEL_OVERRIDE = False
 HIDE_OVERRIDE = False
