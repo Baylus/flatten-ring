@@ -2,7 +2,6 @@ import pygame
 
 from utilities import calculate_new_xy, draw_health_bar
 from config.settings import *
-# from main import margit
 
 from .base import Entity
 from .actions import Actions
