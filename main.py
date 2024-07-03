@@ -12,6 +12,11 @@ import string
 import sys
 import time
 
+# Silences pygame welcome message
+# https://stackoverflow.com/a/55769463
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+import pygame
+
 
 from fitness import get_tarnished_fitness, get_margit_fitness
 
@@ -177,10 +182,12 @@ def main():
         # Co train margit/tarnished so they learn together
         for gen in range(start_gen_nums[0], GENERATIONS, TRAINING_INTERVAL):
             # Run NEAT for player and enemy separately
-            curr_gen = gen
+            # curr_gen = gen
+            get_gen.current = gen
             curr_trainer = trainer_str(Entities.TARNISHED)
             winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
-            curr_gen = gen
+            # curr_gen = gen
+            get_gen.current = gen
             curr_trainer = trainer_str(Entities.MARGIT)
             winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=TRAINING_INTERVAL)
     except Exception as e:
@@ -245,13 +252,30 @@ def process_replays():
         for gen in reversed(gens_needed):
             replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
 
+def get_gen() -> int:
+    """Really strange way of maintaining a global state for the current generation.
+
+    Set using get_gen.current = X. Anytime retrieving will increment generation, so
+    likely will need to use offset to get the right value.
+
+    See this for details: https://stackoverflow.com/a/279597
+
+    Returns:
+        int: Current generation
+    """
+    if not hasattr(get_gen, "current"):
+        get_gen.current = 0  # it doesn't exist yet, so initialize it
+    get_gen.current += 1
+    return get_gen.current
+
 # Define the fitness function
 def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
-    global curr_gen
-    global curr_pop
+    gen = get_gen()
+    global curr_trainer
+    # Same as above
+    trainer = curr_trainer
     curr_pop = 0
-    curr_gen += 1
-    pathlib.Path(f"{GAMESTATES_PATH}/gen_{curr_gen}").mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f"{GAMESTATES_PATH}/gen_{gen}").mkdir(parents=True, exist_ok=True)
 
     if type(genomes_tarnished) == dict:
         genomes_tarnished = list(genomes_tarnished.items())
@@ -278,7 +302,8 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
                 net_margit = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
                 
                 # Schedule the game simulation to run in parallel
-                future = executor.submit(play_game, net_tarnished, net_margit, curr_pop)
+                # We need to give it the pop and gen num, as the parallel processes are going to mess with both
+                future = executor.submit(play_game, net_tarnished, net_margit, curr_pop, gen, trainer)
                 futures.append((future, genome_id_tarnished, genome_id_margit))
 
             # Collect results as they complete
@@ -332,7 +357,7 @@ def draw(tarnished: Tarnished, margit: Margit):
     pygame.display.update()
 
 
-def play_game(tarnished_net, margit_net, pop = curr_pop) -> tuple[int]:
+def play_game(tarnished_net, margit_net, pop = curr_pop, gen = curr_gen, trainer = curr_trainer) -> tuple[int]:
     # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
@@ -356,8 +381,8 @@ def play_game(tarnished_net, margit_net, pop = curr_pop) -> tuple[int]:
         "game_version": GAME_VERSION,
         "fitness_version": FITNESS_VERSION,
         "notes": "",
-        "trainer": curr_trainer,
-        "generation": curr_gen,
+        "trainer": trainer,
+        "generation": gen,
         "population": pop,
         f"{trainer_str(Entities.TARNISHED)}_fitness_details": 0,
         f"{trainer_str(Entities.MARGIT)}_fitness_details": 0,
@@ -433,10 +458,10 @@ def play_game(tarnished_net, margit_net, pop = curr_pop) -> tuple[int]:
         game_result[f"{trainer_str(Entities.MARGIT)}_fitness"] = int(score)
         game_result[f"{trainer_str(Entities.MARGIT)}_fitness_details"] = details
 
-        file_name = str(pop) + f"_{curr_trainer}"
+        file_name = str(pop) + f"_{trainer}"
         file_name += ".json"
         file_name = file_name.replace(":", "_")
-        with open(f"{GAMESTATES_PATH}/gen_{curr_gen}/{file_name}", 'w') as f:
+        with open(f"{GAMESTATES_PATH}/gen_{gen}/{file_name}", 'w') as f:
             json.dump(game_result, f, indent=4)
     
     return game_result[f"{trainer_str(Entities.TARNISHED)}_fitness"], game_result[f"{trainer_str(Entities.MARGIT)}_fitness"]
