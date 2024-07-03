@@ -1,13 +1,14 @@
 from argparse import ArgumentParser
 import concurrent.futures
+from contextlib import contextmanager
 import datetime as dt
 import json
 import math
 import neat
 import os
 import pathlib
-import pygame
 import shutil
+import signal
 import string
 import sys
 import time
@@ -292,10 +293,33 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
     # [tarn_genome_id][margit_genome_id] -> results(tarnished_fitness, margit_fitness)
     results: dict[int, dict[int, tuple[int, int]]] = {}
     if args.parallel:
+        # Create a global flag for termination
+        terminate_flag = False
+
+        def handle_termination(signum, frame):
+            global terminate_flag
+            terminate_flag = True
+            print("Termination signal received. Cleaning up...")
+
+        # Register signal handlers
+        signal.signal(signal.SIGINT, handle_termination)
+        signal.signal(signal.SIGTERM, handle_termination)
+
+        @contextmanager
+        def terminating_executor(max_workers):
+            with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                try:
+                    yield executor
+                finally:
+                    if terminate_flag:
+                        executor.shutdown(wait=True)
+                        print("Executor shut down gracefully.")
+                        sys.exit(0)
+        
         # We need to execute the training in parallel
         # Create a process pool for parallel execution
         futures = []
-        with concurrent.futures.ProcessPoolExecutor() as executor:
+        with terminating_executor(max_workers=MAX_WORKERS) as executor:
             for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
                 curr_pop += 1
                 net_tarnished = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
