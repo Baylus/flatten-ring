@@ -46,3 +46,4 @@ MARGIT_CHECKPOINT_PREFIX = "neat-checkpoint-margit-"
 
 SILENT = True
 PARALLEL_OVERRIDE = False
+HIDE_OVERRIDE = False

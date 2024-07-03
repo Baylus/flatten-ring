@@ -56,6 +56,9 @@ parser.add_argument("-d", "--hide", dest="hide", action="store_true", default=Fa
 
 args = parser.parse_args()
 
+args.parallel = PARALLEL_OVERRIDE or args.parallel
+args.hide = HIDE_OVERRIDE or args.hide
+
 replays = True if any([args.replay, args.best, args.gens != None]) else False
 
 ########## STARTUP CLEANUP
@@ -339,7 +342,6 @@ def play_game(tarnished_net, margit_net, pop = curr_pop) -> tuple[int]:
     game states, the current game version, the fitness version,
     the winner of the match, and the total fitness for each side.
     """
-
     # Reset the npcs
     tarnished = Tarnished()
     margit = Margit()
