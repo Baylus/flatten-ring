@@ -11,6 +11,11 @@ At first, I thought the pygame window would be a concern, but upon thinking more
 
 Going to be using the concurrent.futures library, specifically the ProcessPoolExecutor, which is better than ThreadPoolExecutor in our case, since our slowdown is mostly due to CPU resources, as we only ever write to the file at the end of the game.
 
+A couple of issues that I am running into when implementing this (that will likely necessitate strange solutions to be used, thus my desire to document them here):
+- Displaying the multiprocesses on a single window.
+- Cleaning up games states
+- maintaining global states for the generation/population. see "get_gen" for an example
+
 ## Input/Output definitions
 
 #### Tarnished
