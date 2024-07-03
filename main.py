@@ -1,15 +1,22 @@
 from argparse import ArgumentParser
+import concurrent.futures
+from contextlib import contextmanager
 import datetime as dt
 import json
 import math
 import neat
 import os
 import pathlib
-import pygame
 import shutil
+import signal
 import string
 import sys
 import time
+
+# Silences pygame welcome message
+# https://stackoverflow.com/a/55769463
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+import pygame
 
 
 from fitness import get_tarnished_fitness, get_margit_fitness
@@ -48,42 +55,49 @@ parser.add_argument("-q", "--quiet",
                     help="don't print status messages to stdout. Unused")
 parser.add_argument("-c", "--clean", dest="clean", action="store_false", default=True,
                     help="Should we clean up our previous gamestates?")
+parser.add_argument("-l", "--parallel", dest="parallel", action="store_true", default=False,
+                    help="Should we run parallel instances of the game simulation?")
+parser.add_argument("-d", "--hide", dest="hide", action="store_true", default=False,
+                    help="Should we hide the game by not drawing the entities?")
 
 args = parser.parse_args()
+
+args.parallel = PARALLEL_OVERRIDE or args.parallel
+args.hide = HIDE_OVERRIDE or args.hide
 
 replays = True if any([args.replay, args.best, args.gens != None]) else False
 
 ########## STARTUP CLEANUP
-if not replays and args.clean and not SAVE_GAMESTATES:
-    print("Cleaning up old data")
-    # DELETE GAME STATES #
-    print("Cleaning up old game states")
-    folder = GAMESTATES_PATH
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        try:
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        except Exception as e:
-            print('Failed to delete %s. Reason: %s' % (file_path, e))
+def clean_gamestates():
+    if not replays and args.clean and not SAVE_GAMESTATES:
+        print("Cleaning up old data")
+        # DELETE GAME STATES #
+        print("Cleaning up old game states")
+        folder = GAMESTATES_PATH
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
 
-    print("remove debug.txt")
-    # Delete debug file to ensure we arent looking at old exceptions
-    pathlib.Path.unlink("debug.txt", missing_ok=True)
+        print("remove debug.txt")
+        # Delete debug file to ensure we arent looking at old exceptions
+        pathlib.Path.unlink("debug.txt", missing_ok=True)
 ##################
 
 # Initialize Pygame
 pygame.init()
 
 # Set up the display
-BG = pygame.image.load("assets/stage.png")
-WIN = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Flatten Ring")
+if not args.hide:
+    BG = pygame.image.load("assets/stage.png")
+    WIN = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Flatten Ring")
 
-tarnished = None
-margit = None
 
 tarnished_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
                             neat.DefaultSpeciesSet, neat.DefaultStagnation,
@@ -105,6 +119,7 @@ def main():
     global curr_pop
     global curr_gen
     global curr_trainer
+    clean_gamestates()
     
     # Add reporters, including a Checkpointer
     if CACHE_CHECKPOINTS:
@@ -168,10 +183,12 @@ def main():
         # Co train margit/tarnished so they learn together
         for gen in range(start_gen_nums[0], GENERATIONS, TRAINING_INTERVAL):
             # Run NEAT for player and enemy separately
-            curr_gen = gen
+            # curr_gen = gen
+            get_gen.current = gen
             curr_trainer = trainer_str(Entities.TARNISHED)
             winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
-            curr_gen = gen
+            # curr_gen = gen
+            get_gen.current = gen
             curr_trainer = trainer_str(Entities.MARGIT)
             winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=TRAINING_INTERVAL)
     except Exception as e:
@@ -236,33 +253,104 @@ def process_replays():
         for gen in reversed(gens_needed):
             replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
 
+def get_gen() -> int:
+    """Really strange way of maintaining a global state for the current generation.
+
+    Set using get_gen.current = X. Anytime retrieving will increment generation, so
+    likely will need to use offset to get the right value.
+
+    See this for details: https://stackoverflow.com/a/279597
+
+    Returns:
+        int: Current generation
+    """
+    if not hasattr(get_gen, "current"):
+        get_gen.current = 0  # it doesn't exist yet, so initialize it
+    get_gen.current += 1
+    return get_gen.current
 
 # Define the fitness function
 def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
-    global curr_gen
-    global curr_pop
+    gen = get_gen()
+    global curr_trainer
+    # Same as above
+    trainer = curr_trainer
     curr_pop = 0
-    curr_gen += 1
-    pathlib.Path(f"{GAMESTATES_PATH}/gen_{curr_gen}").mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f"{GAMESTATES_PATH}/gen_{gen}").mkdir(parents=True, exist_ok=True)
 
     if type(genomes_tarnished) == dict:
         genomes_tarnished = list(genomes_tarnished.items())
     if type(genomes_margit) == dict:
         genomes_margit = list(genomes_margit.items())
-
+    
     # Initializing everything to 0 and not None
     for _, genome in genomes_tarnished:
         genome.fitness = 0
     for _, genome in genomes_margit:
         genome.fitness = 0
 
-    for (genome_id_player, genome_tarnished), (genome_id_enemy, genome_margit) in zip(genomes_tarnished, genomes_margit):
-        # Create separate neural networks for player and enemy
-        player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
-        enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
+    # For parallel results
+    # [tarn_genome_id][margit_genome_id] -> results(tarnished_fitness, margit_fitness)
+    results: dict[int, dict[int, tuple[int, int]]] = {}
+    if args.parallel:
+        # Create a global flag for termination
+        terminate_flag = False
+
+        def handle_termination(signum, frame):
+            global terminate_flag
+            terminate_flag = True
+            print("Termination signal received. Cleaning up...")
+
+        # Register signal handlers
+        signal.signal(signal.SIGINT, handle_termination)
+        signal.signal(signal.SIGTERM, handle_termination)
+
+        @contextmanager
+        def terminating_executor(max_workers):
+            with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                try:
+                    yield executor
+                finally:
+                    if terminate_flag:
+                        executor.shutdown(wait=True)
+                        print("Executor shut down gracefully.")
+                        sys.exit(0)
         
-        # Run the simulation
-        player_fitness, enemy_fitness = play_game(player_net, enemy_net)
+        # We need to execute the training in parallel
+        # Create a process pool for parallel execution
+        futures = []
+        with terminating_executor(max_workers=MAX_WORKERS) as executor:
+            for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
+                curr_pop += 1
+                net_tarnished = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
+                net_margit = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
+                
+                # Schedule the game simulation to run in parallel
+                # We need to give it the pop and gen num, as the parallel processes are going to mess with both
+                future = executor.submit(play_game, net_tarnished, net_margit, curr_pop, gen, trainer)
+                futures.append((future, genome_id_tarnished, genome_id_margit))
+
+            # Collect results as they complete
+            for future, genome_id_tarnished, genome_id_margit in futures:
+                result = future.result()
+                if genome_id_tarnished not in results:
+                    results[genome_id_tarnished] = {}
+                results[genome_id_tarnished][genome_id_margit] = result
+    
+    
+    for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
+        if results:
+            # We already did parallel execution, just distribute the results
+            player_fitness, enemy_fitness = results[genome_id_tarnished][genome_id_margit]
+        else:
+            # We did not get results already, go ahead and run the sim
+            # Create separate neural networks for player and enemy
+            player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
+            enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
+            
+            # Run the simulation
+            curr_pop += 1 # Make sure population matches
+            player_fitness, enemy_fitness = play_game(player_net, enemy_net)
         
         # Assign fitness to each genome
         genome_tarnished.fitness = player_fitness
@@ -271,16 +359,19 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         assert genome_tarnished.fitness is not None
         assert genome_margit.fitness is not None
 
+
 def draw_text(surface, text, x, y, font_size=20, color=(255, 255, 255)):
     font = pygame.font.SysFont(None, font_size)
     text_surface = font.render(text, True, color)
     surface.blit(text_surface, (x, y))
 
-def draw():
+def draw(tarnished: Tarnished, margit: Margit):
     WIN.blit(BG, (0,0))
 
-    tarnished.draw(WIN)
-    margit.draw(WIN)
+    if tarnished:
+        tarnished.draw(WIN)
+    if margit:
+        margit.draw(WIN)
 
     # Draw the name below the health bar
     draw_text(WIN, "Trainer: " + str(curr_trainer), 200, 200, font_size=40, color=(255, 0, 0))
@@ -289,7 +380,8 @@ def draw():
 
     pygame.display.update()
 
-def play_game(tarnished_net, margit_net) -> tuple[int]:
+
+def play_game(tarnished_net, margit_net, pop = curr_pop, gen = curr_gen, trainer = curr_trainer) -> tuple[int]:
     # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
@@ -302,11 +394,6 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
     game states, the current game version, the fitness version,
     the winner of the match, and the total fitness for each side.
     """
-    global tarnished
-    global margit
-    global curr_pop
-    curr_pop += 1
-
     # Reset the npcs
     tarnished = Tarnished()
     margit = Margit()
@@ -318,9 +405,9 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
         "game_version": GAME_VERSION,
         "fitness_version": FITNESS_VERSION,
         "notes": "",
-        "trainer": curr_trainer,
-        "generation": curr_gen,
-        "population": curr_pop,
+        "trainer": trainer,
+        "generation": gen,
+        "population": pop,
         f"{trainer_str(Entities.TARNISHED)}_fitness_details": 0,
         f"{trainer_str(Entities.MARGIT)}_fitness_details": 0,
         "game_states": [],
@@ -336,9 +423,11 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
         running = True
         while running:
             clock.tick(TPS)
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+            if not args.hide:
+                # We cannot get events if we are not displaying a window
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
 
             curr_state = {
                 "tick": pygame.time.get_ticks(),
@@ -364,7 +453,8 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
             tarnished.update()
             margit.update()
 
-            draw()
+            if not args.hide:
+                draw(tarnished, margit)
             
             game_result["game_states"].append(curr_state)
             updates += 1
@@ -392,10 +482,10 @@ def play_game(tarnished_net, margit_net) -> tuple[int]:
         game_result[f"{trainer_str(Entities.MARGIT)}_fitness"] = int(score)
         game_result[f"{trainer_str(Entities.MARGIT)}_fitness_details"] = details
 
-        file_name = str(curr_pop) + f"_{curr_trainer}"
+        file_name = str(pop) + f"_{trainer}"
         file_name += ".json"
         file_name = file_name.replace(":", "_")
-        with open(f"{GAMESTATES_PATH}/gen_{curr_gen}/{file_name}", 'w') as f:
+        with open(f"{GAMESTATES_PATH}/gen_{gen}/{file_name}", 'w') as f:
             json.dump(game_result, f, indent=4)
     
     return game_result[f"{trainer_str(Entities.TARNISHED)}_fitness"], game_result[f"{trainer_str(Entities.MARGIT)}_fitness"]
