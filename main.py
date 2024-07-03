@@ -62,33 +62,35 @@ args.hide = HIDE_OVERRIDE or args.hide
 replays = True if any([args.replay, args.best, args.gens != None]) else False
 
 ########## STARTUP CLEANUP
-if not replays and args.clean and not SAVE_GAMESTATES:
-    print("Cleaning up old data")
-    # DELETE GAME STATES #
-    print("Cleaning up old game states")
-    folder = GAMESTATES_PATH
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        try:
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        except Exception as e:
-            print('Failed to delete %s. Reason: %s' % (file_path, e))
+def clean_gamestates():
+    if not replays and args.clean and not SAVE_GAMESTATES:
+        print("Cleaning up old data")
+        # DELETE GAME STATES #
+        print("Cleaning up old game states")
+        folder = GAMESTATES_PATH
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
 
-    print("remove debug.txt")
-    # Delete debug file to ensure we arent looking at old exceptions
-    pathlib.Path.unlink("debug.txt", missing_ok=True)
+        print("remove debug.txt")
+        # Delete debug file to ensure we arent looking at old exceptions
+        pathlib.Path.unlink("debug.txt", missing_ok=True)
 ##################
 
 # Initialize Pygame
 pygame.init()
 
 # Set up the display
-BG = pygame.image.load("assets/stage.png")
-WIN = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Flatten Ring")
+if not args.hide:
+    BG = pygame.image.load("assets/stage.png")
+    WIN = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Flatten Ring")
 
 
 tarnished_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
@@ -111,6 +113,7 @@ def main():
     global curr_pop
     global curr_gen
     global curr_trainer
+    clean_gamestates()
     
     # Add reporters, including a Checkpointer
     if CACHE_CHECKPOINTS:
@@ -371,9 +374,11 @@ def play_game(tarnished_net, margit_net, pop = curr_pop) -> tuple[int]:
         running = True
         while running:
             clock.tick(TPS)
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+            if not args.hide:
+                # We cannot get events if we are not displaying a window
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
 
             curr_state = {
                 "tick": pygame.time.get_ticks(),
