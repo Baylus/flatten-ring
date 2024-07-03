@@ -269,13 +269,14 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
     if type(genomes_margit) == dict:
         genomes_margit = list(genomes_margit.items())
 
-    # TODO: This is all probably overwriting previous instances of the training.
     # e.g. margit pop 5 is overwriting tarnished pop 5 here. Unless I am missing something
     # Initializing everything to 0 and not None
     for _, genome in genomes_tarnished:
-        genome.fitness = 0
+        if genome.fitness == None:
+            genome.fitness = 0
     for _, genome in genomes_margit:
-        genome.fitness = 0
+        if genome.fitness == None:
+            genome.fitness = 0
 
     for (genome_id_player, genome_tarnished), (genome_id_enemy, genome_margit) in zip(genomes_tarnished, genomes_margit):
         # Create separate neural networks for player and enemy
@@ -285,10 +286,14 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         # Run the simulation
         player_fitness, enemy_fitness = play_game(player_net, enemy_net)
         
-        # TODO: See above
-        # Assign fitness to each genome
-        genome_tarnished.fitness = player_fitness
-        genome_margit.fitness = enemy_fitness
+        # Assign fitness to current trainer
+        # It probably does make a difference on whether we are recording the fitness
+        # when the current trainer doesn't match the genome we are editing. And if it
+        # doesn't, assigning fitness only to the one being trained can't hurt us.
+        if curr_trainer == TARNISHED_NAME:
+            genome_tarnished.fitness = player_fitness
+        else:
+            genome_margit.fitness = enemy_fitness
         if not args.quiet:
             print(f"For generation {curr_gen}, population {curr_pop}:")
             print(f"\tTarnished's fitness is {genome_tarnished.fitness}")
