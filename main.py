@@ -913,6 +913,16 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = 0):
         # Now replay the game
         replay_game(game_data)
 
+### Manage Gamestate size
+
+def manage_gamestates():
+    """Reduce the size of the game states folder to fit within the required size defined in the settings
+    """
+    # All gen dirs
+    existing_gens = os.listdir(GAMESTATES_PATH)
+    gen_nums = [int(name[4:]) for name in existing_gens]
+    gen_nums.sort()
+    pass
 
 if __name__ == "__main__":
     if replays:
