@@ -408,7 +408,7 @@ def draw(tarnished: Tarnished, margit: Margit):
     pygame.display.update()
 
 
-def play_game(tarnished_net, margit_net, pop = curr_pop, gen = get_gen.current, trainer = curr_trainer) -> tuple[int]:
+def play_game(tarnished_net, margit_net, pop, gen, trainer = curr_trainer) -> tuple[int]:
     # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
