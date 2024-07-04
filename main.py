@@ -107,10 +107,6 @@ margit_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduc
                             neat.DefaultSpeciesSet, neat.DefaultStagnation,
                             MARGIT_NEAT_PATH)
 
-# Create the population
-# TODO: Move this into the main function and actually utilize the checkpoint data when resuming.
-population_tarnished = neat.Population(tarnished_neat_config)
-population_margit = neat.Population(margit_neat_config)
 
 curr_pop = 0
 curr_gen = 0
@@ -121,6 +117,10 @@ def main():
     global curr_gen
     global curr_trainer
     clean_gamestates()
+    
+    # Create the population
+    population_tarnished = neat.Population(tarnished_neat_config)
+    population_margit = neat.Population(margit_neat_config)
     
     # Add reporters, including a Checkpointer
     if CACHE_CHECKPOINTS:
