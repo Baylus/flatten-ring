@@ -1,6 +1,7 @@
 import math
 
 from entities.actions import Actions, get_primary_action
+from config.settings import MAX_UPDATES_PER_GAME
 
 class FitnessSettings:
     class Tarnished:
@@ -29,7 +30,7 @@ class FitnessSettings:
         # This avoids stacking loss too much that they are scared to fight at all
         LOSS = -200
         # So tired of this guy running off cliffs. Hes not gonna do that anymore
-        FALLING = -500
+        FALLING = -50000
 
 
     class Margit:
@@ -280,7 +281,14 @@ def get_tarnished_fitness(result):
     if "fall" in result["notes"]:
         # Don't fall into pits
         fitness += settings.FALLING
-        details["Falling"] += settings.FALLING
+        # I am also going to punish him more for falling to avoid the repeated action penalty
+        # So he is getting his current repeated action penalty for every frame he avoided.
+        # NOTE: This will also reward him if he is able to stack up enough new action points, but I 
+        # think the current penalties are too high for that to be feasible. Something to consider
+        avoided_penalty = repeat_action_penalty * settings.REPEAT_ACTION_MULT * (MAX_UPDATES_PER_GAME - len(result["game_states"]))
+        fitness += avoided_penalty
+        details["Falling"] += settings.FALLING + avoided_penalty
+
 
     return fitness, details
 
