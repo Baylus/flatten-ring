@@ -368,7 +368,7 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
             
             # Run the simulation
             curr_pop += 1 # Make sure population matches
-            player_fitness, enemy_fitness = play_game(player_net, enemy_net)
+            player_fitness, enemy_fitness = play_game(player_net, enemy_net, curr_pop, gen, curr_trainer)
         
         # Assign fitness to current trainer
         # It probably does make a difference on whether we are recording the fitness
@@ -379,7 +379,7 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         else:
             genome_margit.fitness = enemy_fitness
         if not args.quiet:
-            print(f"For generation {curr_gen}, population {curr_pop}:")
+            print(f"For generation {gen}, population {curr_pop}:")
             print(f"\tTarnished's fitness is {genome_tarnished.fitness}")
             print(f"\tMargit's fitness is {genome_margit.fitness}")
 
@@ -402,13 +402,13 @@ def draw(tarnished: Tarnished, margit: Margit):
 
     # Draw the name below the health bar
     draw_text(WIN, "Trainer: " + str(curr_trainer), 200, 200, font_size=40, color=(255, 0, 0))
-    draw_text(WIN, "Generation: " + str(curr_gen), 200, 300, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(get_gen.current), 200, 300, font_size=40, color=(255, 0, 0))
     draw_text(WIN, "Population: " + str(curr_pop), 200, 400, font_size=40, color=(255, 0, 0))
 
     pygame.display.update()
 
 
-def play_game(tarnished_net, margit_net, pop = curr_pop, gen = curr_gen, trainer = curr_trainer) -> tuple[int]:
+def play_game(tarnished_net, margit_net, pop = curr_pop, gen = get_gen.current, trainer = curr_trainer) -> tuple[int]:
     # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
@@ -821,7 +821,7 @@ def draw_replay(game_data):
     curr_y_offset += 25
 
 
-    draw_text(WIN, "Generation: " + str(curr_gen or game_data["generation"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(get_gen.current or game_data["generation"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
     curr_y_offset += 50
     draw_text(WIN, "Population: " + str(curr_pop or game_data["population"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
     curr_y_offset += 100
