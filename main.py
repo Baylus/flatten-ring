@@ -63,7 +63,8 @@ parser.add_argument("-d", "--hide", dest="hide", action="store_true", default=Fa
 args = parser.parse_args()
 
 args.parallel = PARALLEL_OVERRIDE or args.parallel
-args.hide = HIDE_OVERRIDE or args.hide
+# If we are running parallel, we cannot have multiple windows
+args.hide = HIDE_OVERRIDE or args.hide or args.parallel
 
 replays = True if any([args.replay, args.best, args.gens != None]) else False
 
@@ -197,6 +198,7 @@ def main():
             # curr_gen = gen
             get_gen.current = gen
             curr_trainer = TARNISHED_NAME
+            # TODO: Are these even passing in the correct stuff? We are passing a genome and a population into this function....
             winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
             # curr_gen = gen
             get_gen.current = gen
@@ -374,6 +376,7 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         # It probably does make a difference on whether we are recording the fitness
         # when the current trainer doesn't match the genome we are editing. And if it
         # doesn't, assigning fitness only to the one being trained can't hurt us.
+        # TODO: Actually, if we assign them both, theres no reason to run the eval genomes twice...
         if curr_trainer == TARNISHED_NAME:
             genome_tarnished.fitness = player_fitness
         else:
