@@ -23,7 +23,7 @@ from fitness import get_tarnished_fitness, get_margit_fitness
 
 from entities.tarnished import Tarnished
 from entities.margit import Margit
-from entities.base import Entities, trainer_str
+from entities.base import Entities, trainer_str, TARNISHED_NAME, MARGIT_NAME
 from entities.actions import Actions
 from entities.exceptions import *
 
@@ -48,7 +48,7 @@ If more than 2 generations are specified, then only those generations will be pr
 parser.add_argument("-g", "--generations", dest="gens", default=None, type=int, nargs='*',
                     help=generations_help)
 parser.add_argument("-t", "--trainer", dest="trainer", default=None, type=str, 
-                    choices=[trainer_str(Entities.TARNISHED).lower(), trainer_str(Entities.MARGIT).lower()],
+                    choices=[TARNISHED_NAME.lower(), MARGIT_NAME.lower()],
                     help="Specify which trainer to show for the best replays. If None provided, will train both")
 parser.add_argument("-q", "--quiet",
                     action="store_true", dest="quiet", default=False,
@@ -63,7 +63,8 @@ parser.add_argument("-d", "--hide", dest="hide", action="store_true", default=Fa
 args = parser.parse_args()
 
 args.parallel = PARALLEL_OVERRIDE or args.parallel
-args.hide = HIDE_OVERRIDE or args.hide
+# If we are running parallel, we cannot have multiple windows
+args.hide = HIDE_OVERRIDE or args.hide or args.parallel
 
 replays = True if any([args.replay, args.best, args.gens != None]) else False
 
@@ -107,9 +108,6 @@ margit_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduc
                             neat.DefaultSpeciesSet, neat.DefaultStagnation,
                             MARGIT_NEAT_PATH)
 
-# Create the population
-population_tarnished = neat.Population(tarnished_neat_config)
-population_margit = neat.Population(margit_neat_config)
 
 curr_pop = 0
 curr_gen = 0
@@ -120,6 +118,10 @@ def main():
     global curr_gen
     global curr_trainer
     clean_gamestates()
+
+    # Create the population
+    population_tarnished = neat.Population(tarnished_neat_config)
+    population_margit = neat.Population(margit_neat_config)
     
     # Add reporters, including a Checkpointer
     if CACHE_CHECKPOINTS:
@@ -153,25 +155,35 @@ def main():
         # first to catch up to tarnished (incase a run is stopped during margit's training, meaning he will be
         # behind in training one full cycle)
         start_gen_nums = [0, 0]
+        checkpointer_tarnished = None
+        checkpointer_margit = None
         if RESTORE_CHECKPOINTS and not args.reset:
             # We gotta find the right run to restore
             existing_checkpoint_files = os.listdir(this_runs_checkpoints)
             print(f"This is our existing checkpoints from {this_runs_checkpoints}:\n{existing_checkpoint_files}")
-            if existing_checkpoint_files: 
-
+            if existing_checkpoint_files:
+                # Since we have checkpoints, we need to actually initialize the population with them.
                 tarn_checkpoint, start_gen_nums[0] = get_newest_checkpoint_file(existing_checkpoint_files, TARNISHED_CHECKPOINT_PREFIX)
-                checkpointer_tarnished = OneIndexedCheckpointer.restore_checkpoint(f"{this_runs_checkpoints}/{tarn_checkpoint}")
+                population_tarnished = neat.Checkpointer.restore_checkpoint(f"{this_runs_checkpoints}/{tarn_checkpoint}")
                 print(f"We are using {tarn_checkpoint} for tarnished")
                 margit_checkpoint, start_gen_nums[1] = get_newest_checkpoint_file(existing_checkpoint_files, MARGIT_CHECKPOINT_PREFIX)
-                checkpointer_margit = OneIndexedCheckpointer.restore_checkpoint(f"{this_runs_checkpoints}/{margit_checkpoint}")
+                population_margit = neat.Checkpointer.restore_checkpoint(f"{this_runs_checkpoints}/{margit_checkpoint}")
                 print(f"We are using {margit_checkpoint} for margit")
+                checkpointer_tarnished = neat.Checkpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{TARNISHED_CHECKPOINT_PREFIX}')
+                checkpointer_margit = neat.Checkpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
             else:
                 # We didn't have any existing checkpoints within the run's folder
                 print("Warning, attempted to restore checkpoints, but no checkpoints were present. If this was expected, disregard.")
 
-        checkpointer_tarnished = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{TARNISHED_CHECKPOINT_PREFIX}')
-        checkpointer_margit = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
+        if not checkpointer_tarnished:
+            # We are using new checkpoints, either because we aren't resuming previous, or no previous was found. Use 1 indexed runs
+            print("we are using new checkpoints")
+            # time.sleep(1)
+            checkpointer_tarnished = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{TARNISHED_CHECKPOINT_PREFIX}')
+            checkpointer_margit = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
         
+        # TODO: Add this to allow us to record to a output file too
+        # https://stackoverflow.com/a/14906787
         population_tarnished.add_reporter(neat.StdOutReporter(True))
         population_tarnished.add_reporter(neat.StatisticsReporter())
         population_tarnished.add_reporter(checkpointer_tarnished)
@@ -185,13 +197,17 @@ def main():
             # Run NEAT for player and enemy separately
             # curr_gen = gen
             get_gen.current = gen
-            curr_trainer = trainer_str(Entities.TARNISHED)
+
+            curr_trainer = TARNISHED_NAME
+            # TODO: Are these even passing in the correct stuff? We are passing a genome and a population into this function....
+            print("########### Training Tarnished Now ###########")
             winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
             # curr_gen = gen
             get_gen.current = gen
-            curr_trainer = trainer_str(Entities.MARGIT)
+            curr_trainer = MARGIT_NAME
+            print("########### Training Margit Now ###########")
             winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=TRAINING_INTERVAL)
-    except Exception as e:
+    except BaseException as e:
         with open("debug.txt", "w") as f:
             f.write(str(e))
         raise
@@ -237,11 +253,11 @@ def process_replays():
     ents = [Entities.TARNISHED, Entities.MARGIT]
     if args.trainer:
         # We are specifying one
-        if args.trainer == trainer_str(Entities.TARNISHED).lower():
+        if args.trainer == MARGIT_NAME.lower():
             # We are only training Tarnished
-            ents = [Entities.TARNISHED]
-        else:
             ents = [Entities.MARGIT]
+        else:
+            ents = [Entities.TARNISHED]
     # Make the names readable
     ents = [trainer_str(s) for s in ents]
     gens_needed.sort()
@@ -250,8 +266,13 @@ def process_replays():
     for trainer in ents:
         # CONSIDER: Which is more important to go forwards or backwards in generations
         # Going to go backwards and see what I like/dont
-        for gen in reversed(gens_needed):
-            replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
+        try:
+            for gen in reversed(gens_needed):
+                print(f"Replaying game from {trainer}")
+                replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
+        except KeyboardInterrupt:
+            # We can use this to skip to margit's training incase we are done with tarnished
+            pass
 
 def get_gen() -> int:
     """Really strange way of maintaining a global state for the current generation.
@@ -285,9 +306,11 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
     
     # Initializing everything to 0 and not None
     for _, genome in genomes_tarnished:
-        genome.fitness = 0
+        if genome.fitness == None:
+            genome.fitness = 0
     for _, genome in genomes_margit:
-        genome.fitness = 0
+        if genome.fitness == None:
+            genome.fitness = 0
 
     # For parallel results
     # [tarn_genome_id][margit_genome_id] -> results(tarnished_fitness, margit_fitness)
@@ -350,11 +373,21 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
             
             # Run the simulation
             curr_pop += 1 # Make sure population matches
-            player_fitness, enemy_fitness = play_game(player_net, enemy_net)
+            player_fitness, enemy_fitness = play_game(player_net, enemy_net, curr_pop, gen, curr_trainer)
         
-        # Assign fitness to each genome
-        genome_tarnished.fitness = player_fitness
-        genome_margit.fitness = enemy_fitness
+        # Assign fitness to current trainer
+        # It probably does make a difference on whether we are recording the fitness
+        # when the current trainer doesn't match the genome we are editing. And if it
+        # doesn't, assigning fitness only to the one being trained can't hurt us.
+        # TODO: Actually, if we assign them both, theres no reason to run the eval genomes twice...
+        if curr_trainer == TARNISHED_NAME:
+            genome_tarnished.fitness = player_fitness
+        else:
+            genome_margit.fitness = enemy_fitness
+        if not args.quiet:
+            print(f"For generation {gen}, population {curr_pop}:")
+            print(f"\tTarnished's fitness is {genome_tarnished.fitness}")
+            print(f"\tMargit's fitness is {genome_margit.fitness}")
 
         assert genome_tarnished.fitness is not None
         assert genome_margit.fitness is not None
@@ -375,13 +408,13 @@ def draw(tarnished: Tarnished, margit: Margit):
 
     # Draw the name below the health bar
     draw_text(WIN, "Trainer: " + str(curr_trainer), 200, 200, font_size=40, color=(255, 0, 0))
-    draw_text(WIN, "Generation: " + str(curr_gen), 200, 300, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(get_gen.current), 200, 300, font_size=40, color=(255, 0, 0))
     draw_text(WIN, "Population: " + str(curr_pop), 200, 400, font_size=40, color=(255, 0, 0))
 
     pygame.display.update()
 
 
-def play_game(tarnished_net, margit_net, pop = curr_pop, gen = curr_gen, trainer = curr_trainer) -> tuple[int]:
+def play_game(tarnished_net, margit_net, pop, gen, trainer = curr_trainer) -> tuple[int]:
     # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
@@ -400,16 +433,16 @@ def play_game(tarnished_net, margit_net, pop = curr_pop, gen = curr_gen, trainer
 
     game_result = { # For recording all other elements and storing final output of logging function
         "winner": "draw", # Default incase something fails
-        f"{trainer_str(Entities.TARNISHED)}_fitness": 0,
-        f"{trainer_str(Entities.MARGIT)}_fitness": 0,
+        f"{TARNISHED_NAME}_fitness": 0,
+        f"{MARGIT_NAME}_fitness": 0,
         "game_version": GAME_VERSION,
         "fitness_version": FITNESS_VERSION,
         "notes": "",
         "trainer": trainer,
         "generation": gen,
         "population": pop,
-        f"{trainer_str(Entities.TARNISHED)}_fitness_details": 0,
-        f"{trainer_str(Entities.MARGIT)}_fitness_details": 0,
+        f"{TARNISHED_NAME}_fitness_details": 0,
+        f"{MARGIT_NAME}_fitness_details": 0,
         "game_states": [],
     }
 
@@ -462,9 +495,13 @@ def play_game(tarnished_net, margit_net, pop = curr_pop, gen = curr_gen, trainer
             if updates > MAX_UPDATES_PER_GAME:
                 game_result["notes"] = "Game stalemated"
                 running = False
-    except TarnishedDied:
+    except TarnishedDied as e:
         # Update winner
         game_result["winner"] = "margit"
+        if hasattr(e, 'message'):
+            game_result["notes"] = e.message
+        else:
+            game_result["notes"] = str(e)
         # Update the state of the last game tick for tarnished status
         game_result["game_states"][-1]["tarnished"]["state"] = tarnished.get_state()
     except MargitDied as e:
@@ -476,11 +513,11 @@ def play_game(tarnished_net, margit_net, pop = curr_pop, gen = curr_gen, trainer
     finally:
         # Record our game state
         score, details = get_tarnished_fitness(game_result)
-        game_result[f"{trainer_str(Entities.TARNISHED)}_fitness"] = int(score)
-        game_result[f"{trainer_str(Entities.TARNISHED)}_fitness_details"] = details
+        game_result[f"{TARNISHED_NAME}_fitness"] = int(score)
+        game_result[f"{TARNISHED_NAME}_fitness_details"] = details
         score, details = get_margit_fitness(game_result)
-        game_result[f"{trainer_str(Entities.MARGIT)}_fitness"] = int(score)
-        game_result[f"{trainer_str(Entities.MARGIT)}_fitness_details"] = details
+        game_result[f"{MARGIT_NAME}_fitness"] = int(score)
+        game_result[f"{MARGIT_NAME}_fitness_details"] = details
 
         file_name = str(pop) + f"_{trainer}"
         file_name += ".json"
@@ -488,7 +525,7 @@ def play_game(tarnished_net, margit_net, pop = curr_pop, gen = curr_gen, trainer
         with open(f"{GAMESTATES_PATH}/gen_{gen}/{file_name}", 'w') as f:
             json.dump(game_result, f, indent=4)
     
-    return game_result[f"{trainer_str(Entities.TARNISHED)}_fitness"], game_result[f"{trainer_str(Entities.MARGIT)}_fitness"]
+    return game_result[f"{TARNISHED_NAME}_fitness"], game_result[f"{MARGIT_NAME}_fitness"]
 
 ### Actions ###
 
@@ -774,10 +811,10 @@ def draw_replay(game_data):
     trainer = curr_trainer or game_data["trainer"]
     X = 160
     curr_y_offset = 200
-    if trainer == trainer_str(Entities.TARNISHED):
-        draw_text(WIN, "Tarnished Fitness: " + str(game_data[f"{trainer_str(Entities.TARNISHED)}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
+    if trainer == TARNISHED_NAME:
+        draw_text(WIN, "Tarnished Fitness: " + str(game_data[f"{TARNISHED_NAME}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
     else:
-        draw_text(WIN, "Margit Fitness: " + str(game_data[f"{trainer_str(Entities.MARGIT)}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
+        draw_text(WIN, "Margit Fitness: " + str(game_data[f"{MARGIT_NAME}_fitness"]), X, curr_y_offset, font_size=40, color=(255, 0, 0))
     
     # Generation meta stats for best replays
     curr_y_offset += 25
@@ -790,13 +827,13 @@ def draw_replay(game_data):
     curr_y_offset += 25
 
 
-    draw_text(WIN, "Generation: " + str(curr_gen or game_data["generation"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(get_gen.current or game_data["generation"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
     curr_y_offset += 50
     draw_text(WIN, "Population: " + str(curr_pop or game_data["population"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
     curr_y_offset += 100
 
     draw_text(WIN, "Fitness Details: ", X, curr_y_offset, font_size=40, color=(255, 0, 0))
-    for detail, val in game_data[f"{trainer_str(Entities.MARGIT)}_fitness_details"].items():
+    for detail, val in game_data[f"{trainer}_fitness_details"].items():
         curr_y_offset += 25
         draw_text(WIN, f"   {detail}: " + str(int(val)), X, curr_y_offset, font_size=30, color=(255, 0, 0))
 
@@ -851,7 +888,7 @@ def replay_file(replay_file: str):
     replay_game(game_data)
 
 
-def replay_best_in_gen(gen: int, trainer: str, num_best = 0):
+def replay_best_in_gen(gen: int, trainer: str, num_best = DEFAULT_NUM_BEST_GENS):
     """Replay the best within a specific generation
 
     We should separate out the games where the trainer is the active one being trained.
@@ -910,6 +947,7 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = 0):
             game_data = json.load(json_file)
         curr_pop = game_data["population"]
 
+        print(f"Replaying {file}")
         # Now replay the game
         replay_game(game_data)
 

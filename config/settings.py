@@ -11,7 +11,7 @@ DEFAULT_HEALTH_BAR_PADDING = 25
 MAX_UPDATES_PER_GAME = 1000
 
 GAME_VERSION = "V0.1"
-FITNESS_VERSION = "V0.9"
+FITNESS_VERSION = "V0.12"
 
 # Load entity images
 TARNISHED_IMAGE = pygame.image.load("assets/tarnished.png")
