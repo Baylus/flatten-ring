@@ -118,7 +118,7 @@ def main():
     global curr_gen
     global curr_trainer
     clean_gamestates()
-    
+
     # Create the population
     population_tarnished = neat.Population(tarnished_neat_config)
     population_margit = neat.Population(margit_neat_config)
@@ -197,6 +197,7 @@ def main():
             # Run NEAT for player and enemy separately
             # curr_gen = gen
             get_gen.current = gen
+
             curr_trainer = TARNISHED_NAME
             # TODO: Are these even passing in the correct stuff? We are passing a genome and a population into this function....
             print("########### Training Tarnished Now ###########")
