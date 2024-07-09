@@ -1,20 +1,5 @@
 # flatten ring
-2D Darksouls-like game that is trained via genetic algorithms
-
-NOTE: I actually have only played like an hour of DS3, but a good amount of elden ring so I will be using terminology appropriate to this.
-
-## Parallelize
-
-So, it has become abundantly clear that training will take far too long if making incremental adjustments and waiting literal days to train for each session. So, I am going to make it so we can train many different populations at the same time.
-
-At first, I thought the pygame window would be a concern, but upon thinking more on it, all the processes are pretty bound together with how I laid them out. Even if the different entities exist in the same game, they should conflict, because the weapons are explicitly assigned their target, which is generated in the play_game function. I just need to make sure that theres no references to those objects on the outside and then we should be fine to simulate them. The one window should persist throughout the training just fine.
-
-Going to be using the concurrent.futures library, specifically the ProcessPoolExecutor, which is better than ThreadPoolExecutor in our case, since our slowdown is mostly due to CPU resources, as we only ever write to the file at the end of the game.
-
-A couple of issues that I am running into when implementing this (that will likely necessitate strange solutions to be used, thus my desire to document them here):
-- Displaying the multiprocesses on a single window.
-- Cleaning up games states
-- maintaining global states for the generation/population. see "get_gen" for an example
+2D Elden Ring-like game that is trained via genetic algorithms, specifically NEAT.
 
 ## Input/Output definitions
 
