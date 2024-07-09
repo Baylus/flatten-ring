@@ -291,6 +291,7 @@ def get_gen() -> int:
     return get_gen.current
 
 # Define the fitness function
+# TODO: We have a major issue with this function because of the way the population works
 def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
     gen = get_gen()
     global curr_trainer
