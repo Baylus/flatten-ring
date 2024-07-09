@@ -199,10 +199,12 @@ def main():
             get_gen.current = gen
             curr_trainer = TARNISHED_NAME
             # TODO: Are these even passing in the correct stuff? We are passing a genome and a population into this function....
+            print("########### Training Tarnished Now ###########")
             winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
             # curr_gen = gen
             get_gen.current = gen
             curr_trainer = MARGIT_NAME
+            print("########### Training Margit Now ###########")
             winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=TRAINING_INTERVAL)
     except BaseException as e:
         with open("debug.txt", "w") as f:
