@@ -199,7 +199,7 @@ def main():
             get_gen.current = gen
 
             curr_trainer = TARNISHED_NAME
-            # TODO: Are these even passing in the correct stuff? We are passing a genome and a population into this function....
+            # TODO: Pull out a lot of this, will need to completely overhaul this.
             print("########### Training Tarnished Now ###########")
             winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
             # curr_gen = gen
@@ -346,6 +346,9 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
         with terminating_executor(max_workers=MAX_WORKERS) as executor:
             for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
                 curr_pop += 1
+                # TODO: Pull out these nets back into a central function. We will be submitting the networks and retrieving
+                # results, congregating them, and then feeding their fitnesses via a "fitness" function to the population.run
+                # calls.
                 net_tarnished = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
                 net_margit = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
                 
