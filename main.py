@@ -5,6 +5,7 @@ import datetime as dt
 import json
 import math
 import neat
+from neat.six_util import iteritems
 import os
 import pathlib
 import shutil
@@ -192,119 +193,37 @@ def main():
         population_margit.add_reporter(checkpointer_margit)
 
     try:
-        # Co train margit/tarnished so they learn together
-        for gen in range(start_gen_nums[0], GENERATIONS, TRAINING_INTERVAL):
+        get_gen.current = start_gen_nums[0]
+        for gen in range(start_gen_nums[0], GENERATIONS):
             # Run NEAT for player and enemy separately
-            # curr_gen = gen
-            get_gen.current = gen
-
-            curr_trainer = TARNISHED_NAME
             # TODO: Pull out a lot of this, will need to completely overhaul this.
+            simulate_games(population_tarnished, population_margit)
+            ########
             print("########### Training Tarnished Now ###########")
-            winner_tarnished = population_tarnished.run(lambda genomes, config: eval_genomes(genomes, population_margit.population, config, margit_neat_config), n=TRAINING_INTERVAL)
-            # curr_gen = gen
-            get_gen.current = gen
-            curr_trainer = MARGIT_NAME
+            _ = population_tarnished.run(eval_genomes, n=1)
             print("########### Training Margit Now ###########")
-            winner_margit = population_margit.run(lambda genomes, config: eval_genomes(population_tarnished.population, genomes, tarnished_neat_config, config), n=TRAINING_INTERVAL)
+            _ = population_margit.run(eval_genomes, n=1)
     except BaseException as e:
         with open("debug.txt", "w") as f:
             f.write(str(e))
         raise
 
-def process_replays():
-    """Process all replays that are requested
-    """
-    # Figure out which generations that we need to process.
-    existing_gens = os.listdir(GAMESTATES_PATH)
-    gen_nums = [int(name[4:]) for name in existing_gens]
-    gen_nums.sort()
-    
-    gens_needed = []
-    if args.gens and (arg_len := len(args.gens)) > 0:
-        # We have the gens arg specified. Find which ones.
-        if arg_len == 0:
-            gens_needed = gen_nums # None specified, so all generations
-        elif arg_len == 1:
-            # We need to get the last X generations
-            gens_needed = gen_nums[-args.gens[0]:]
-        else:
-            # These will need to intersect their input parameter lists and the list of available generations to get their answers
-            gens_requested = []
-            if arg_len == 2:
-                # We need to get a range of generations
-                gens_requested = list(range(args.gens[0], args.gens[1] + 1, 1))
-            elif arg_len > 2:
-                # We just need to include the generations that are listed
-                gens_requested = args.gens
-            
-            gens_needed = list(set(gen_nums).intersection(gens_requested))
-        
-            if not gens_needed:
-                raise ValueError(f"We could not find an intersection between the generations available and the ones requested: {gen_nums} : {gens_requested}")
-    else:
-        gens_needed = gen_nums # None specified, so all generations
-    
-    if not gens_needed:
-        # Somehow we came up with no generations we could work
-        raise ValueError("We didn't find any generations that we could work according to the input parameters")
+def simulate_games(tarn_pop, marg_pop) -> tuple[dict[int, int]]:
+    """Simulate all populations and assigns fitness back to population genomes
 
-    # determine which trainers that we need to acquire bests from
-    ents = [Entities.TARNISHED, Entities.MARGIT]
-    if args.trainer:
-        # We are specifying one
-        if args.trainer == MARGIT_NAME.lower():
-            # We are only training Tarnished
-            ents = [Entities.MARGIT]
-        else:
-            ents = [Entities.TARNISHED]
-    # Make the names readable
-    ents = [trainer_str(s) for s in ents]
-    gens_needed.sort()
-
-    # Replay best segments from trainer(s)
-    for trainer in ents:
-        # CONSIDER: Which is more important to go forwards or backwards in generations
-        # Going to go backwards and see what I like/dont
-        try:
-            for gen in reversed(gens_needed):
-                print(f"Replaying game from {trainer}")
-                replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
-        except KeyboardInterrupt:
-            # We can use this to skip to margit's training incase we are done with tarnished
-            pass
-
-def get_gen() -> int:
-    """Really strange way of maintaining a global state for the current generation.
-
-    Set using get_gen.current = X. Anytime retrieving will increment generation, so
-    likely will need to use offset to get the right value.
-
-    See this for details: https://stackoverflow.com/a/279597
+    Args:
+        tarn_pop (neat.Population): The population object for Tarnished. Will need to convert to iterable list.
+        marg_pop (neat.Population): The population object for Margit. Will need to convert to iterable list.
 
     Returns:
-        int: Current generation
+        tarn_fitness, marg_fitness: Maps from genome_id -> fitness value of the game
     """
-    if not hasattr(get_gen, "current"):
-        get_gen.current = 0  # it doesn't exist yet, so initialize it
-    get_gen.current += 1
-    return get_gen.current
-
-# Define the fitness function
-# TODO: We have a major issue with this function because of the way the population works
-def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_margit):
-    gen = get_gen()
-    global curr_trainer
-    # Same as above
-    trainer = curr_trainer
+    genomes_tarnished = list(iteritems(tarn_pop.population))
+    genomes_margit = list(iteritems(marg_pop.population))
     curr_pop = 0
+    gen = get_gen()
     pathlib.Path(f"{GAMESTATES_PATH}/gen_{gen}").mkdir(parents=True, exist_ok=True)
 
-    if type(genomes_tarnished) == dict:
-        genomes_tarnished = list(genomes_tarnished.items())
-    if type(genomes_margit) == dict:
-        genomes_margit = list(genomes_margit.items())
-    
     # Initializing everything to 0 and not None
     for _, genome in genomes_tarnished:
         if genome.fitness == None:
@@ -312,11 +231,9 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
     for _, genome in genomes_margit:
         if genome.fitness == None:
             genome.fitness = 0
-
-    # For parallel results
-    # [tarn_genome_id][margit_genome_id] -> results(tarnished_fitness, margit_fitness)
-    results: dict[int, dict[int, tuple[int, int]]] = {}
-    if args.parallel:
+    
+    # Simulate games and assign fitnesses
+    if args.parallel:   # For parallel training
         # Create a global flag for termination
         terminate_flag = False
 
@@ -349,76 +266,52 @@ def eval_genomes(genomes_tarnished, genomes_margit, config_tarnished, config_mar
                 # TODO: Pull out these nets back into a central function. We will be submitting the networks and retrieving
                 # results, congregating them, and then feeding their fitnesses via a "fitness" function to the population.run
                 # calls.
-                net_tarnished = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
-                net_margit = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
+                net_tarnished = neat.nn.FeedForwardNetwork.create(genome_tarnished, tarn_pop.config)
+                net_margit = neat.nn.FeedForwardNetwork.create(genome_margit, marg_pop.config)
                 
                 # Schedule the game simulation to run in parallel
                 # We need to give it the pop and gen num, as the parallel processes are going to mess with both
-                future = executor.submit(play_game, net_tarnished, net_margit, curr_pop, gen, trainer)
-                futures.append((future, genome_id_tarnished, genome_id_margit))
+                future = executor.submit(play_game, net_tarnished, net_margit, curr_pop, gen)
+                futures.append((future, genome_tarnished, genome_margit))
 
             # Collect results as they complete
-            for future, genome_id_tarnished, genome_id_margit in futures:
-                result = future.result()
-                if genome_id_tarnished not in results:
-                    results[genome_id_tarnished] = {}
-                results[genome_id_tarnished][genome_id_margit] = result
+            for future, genome_tarnished, genome_margit in futures:
+                tfit, mfit = future.result()
+                genome_tarnished.fitness = tfit
+                genome_margit.fitness = mfit
     
-    
-    for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
-        if results:
-            # We already did parallel execution, just distribute the results
-            player_fitness, enemy_fitness = results[genome_id_tarnished][genome_id_margit]
-        else:
-            # We did not get results already, go ahead and run the sim
+    else:               # We are not executing in parallel.
+        for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
             # Create separate neural networks for player and enemy
-            player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, config_tarnished)
-            enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, config_margit)
+            player_net = neat.nn.FeedForwardNetwork.create(genome_tarnished, tarn_pop.config)
+            enemy_net = neat.nn.FeedForwardNetwork.create(genome_margit, marg_pop.config)
             
             # Run the simulation
             curr_pop += 1 # Make sure population matches
-            player_fitness, enemy_fitness = play_game(player_net, enemy_net, curr_pop, gen, curr_trainer)
-        
-        # Assign fitness to current trainer
-        # It probably does make a difference on whether we are recording the fitness
-        # when the current trainer doesn't match the genome we are editing. And if it
-        # doesn't, assigning fitness only to the one being trained can't hurt us.
-        # TODO: Actually, if we assign them both, theres no reason to run the eval genomes twice...
-        if curr_trainer == TARNISHED_NAME:
-            genome_tarnished.fitness = player_fitness
-        else:
-            genome_margit.fitness = enemy_fitness
-        if not args.quiet:
-            print(f"For generation {gen}, population {curr_pop}:")
-            print(f"\tTarnished's fitness is {genome_tarnished.fitness}")
-            print(f"\tMargit's fitness is {genome_margit.fitness}")
+            tfit, mfit = play_game(player_net, enemy_net, curr_pop, gen, curr_trainer)
+            
+            # Assign fitness
+            genome_tarnished.fitness = tfit
+            genome_margit.fitness = mfit
+            if not args.quiet:
+                print(f"For generation {gen}, population {curr_pop}:")
+                print(f"\tTarnished's fitness is {genome_tarnished.fitness}")
+                print(f"\tMargit's fitness is {genome_margit.fitness}")
 
-        assert genome_tarnished.fitness is not None
-        assert genome_margit.fitness is not None
+            assert genome_tarnished.fitness is not None
+            assert genome_margit.fitness is not None
 
+def eval_genomes(genomes, config):
+    """No-op function. Could add logging stuff here if I felt like it.
 
-def draw_text(surface, text, x, y, font_size=20, color=(255, 255, 255)):
-    font = pygame.font.SysFont(None, font_size)
-    text_surface = font.render(text, True, color)
-    surface.blit(text_surface, (x, y))
-
-def draw(tarnished: Tarnished, margit: Margit):
-    WIN.blit(BG, (0,0))
-
-    if tarnished:
-        tarnished.draw(WIN)
-    if margit:
-        margit.draw(WIN)
-
-    # Draw the name below the health bar
-    draw_text(WIN, "Trainer: " + str(curr_trainer), 200, 200, font_size=40, color=(255, 0, 0))
-    draw_text(WIN, "Generation: " + str(get_gen.current), 200, 300, font_size=40, color=(255, 0, 0))
-    draw_text(WIN, "Population: " + str(curr_pop), 200, 400, font_size=40, color=(255, 0, 0))
-
-    pygame.display.update()
+    Args:
+        genomes (_type_): _description_
+        config (_type_): _description_
+    """
+    pass
 
 
-def play_game(tarnished_net, margit_net, pop, gen, trainer = curr_trainer) -> tuple[int]:
+def play_game(tarnished_net, margit_net, pop, gen) -> tuple[int]:
     # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
@@ -442,7 +335,6 @@ def play_game(tarnished_net, margit_net, pop, gen, trainer = curr_trainer) -> tu
         "game_version": GAME_VERSION,
         "fitness_version": FITNESS_VERSION,
         "notes": "",
-        "trainer": trainer,
         "generation": gen,
         "population": pop,
         f"{TARNISHED_NAME}_fitness_details": 0,
@@ -523,7 +415,7 @@ def play_game(tarnished_net, margit_net, pop, gen, trainer = curr_trainer) -> tu
         game_result[f"{MARGIT_NAME}_fitness"] = int(score)
         game_result[f"{MARGIT_NAME}_fitness_details"] = details
 
-        file_name = str(pop) + f"_{trainer}"
+        file_name = str(pop)
         file_name += ".json"
         file_name = file_name.replace(":", "_")
         with open(f"{GAMESTATES_PATH}/gen_{gen}/{file_name}", 'w') as f:
@@ -954,6 +846,107 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = DEFAULT_NUM_BEST_GENS)
         print(f"Replaying {file}")
         # Now replay the game
         replay_game(game_data)
+
+
+def process_replays():
+    """Process all replays that are requested
+    """
+    # Figure out which generations that we need to process.
+    existing_gens = os.listdir(GAMESTATES_PATH)
+    gen_nums = [int(name[4:]) for name in existing_gens]
+    gen_nums.sort()
+    
+    gens_needed = []
+    if args.gens and (arg_len := len(args.gens)) > 0:
+        # We have the gens arg specified. Find which ones.
+        if arg_len == 0:
+            gens_needed = gen_nums # None specified, so all generations
+        elif arg_len == 1:
+            # We need to get the last X generations
+            gens_needed = gen_nums[-args.gens[0]:]
+        else:
+            # These will need to intersect their input parameter lists and the list of available generations to get their answers
+            gens_requested = []
+            if arg_len == 2:
+                # We need to get a range of generations
+                gens_requested = list(range(args.gens[0], args.gens[1] + 1, 1))
+            elif arg_len > 2:
+                # We just need to include the generations that are listed
+                gens_requested = args.gens
+            
+            gens_needed = list(set(gen_nums).intersection(gens_requested))
+        
+            if not gens_needed:
+                raise ValueError(f"We could not find an intersection between the generations available and the ones requested: {gen_nums} : {gens_requested}")
+    else:
+        gens_needed = gen_nums # None specified, so all generations
+    
+    if not gens_needed:
+        # Somehow we came up with no generations we could work
+        raise ValueError("We didn't find any generations that we could work according to the input parameters")
+
+    # determine which trainers that we need to acquire bests from
+    ents = [Entities.TARNISHED, Entities.MARGIT]
+    if args.trainer:
+        # We are specifying one
+        if args.trainer == MARGIT_NAME.lower():
+            # We are only training Tarnished
+            ents = [Entities.MARGIT]
+        else:
+            ents = [Entities.TARNISHED]
+    # Make the names readable
+    ents = [trainer_str(s) for s in ents]
+    gens_needed.sort()
+
+    # Replay best segments from trainer(s)
+    for trainer in ents:
+        # CONSIDER: Which is more important to go forwards or backwards in generations
+        # Going to go backwards and see what I like/dont
+        try:
+            for gen in reversed(gens_needed):
+                print(f"Replaying game from {trainer}")
+                replay_best_in_gen(gen, trainer, args.best or DEFAULT_NUM_BEST_GENS)
+        except KeyboardInterrupt:
+            # We can use this to skip to margit's training incase we are done with tarnished
+            pass
+
+def draw_text(surface, text, x, y, font_size=20, color=(255, 255, 255)):
+    font = pygame.font.SysFont(None, font_size)
+    text_surface = font.render(text, True, color)
+    surface.blit(text_surface, (x, y))
+
+def draw(tarnished: Tarnished, margit: Margit):
+    WIN.blit(BG, (0,0))
+
+    if tarnished:
+        tarnished.draw(WIN)
+    if margit:
+        margit.draw(WIN)
+
+    # Draw the name below the health bar
+    draw_text(WIN, "Trainer: " + str(curr_trainer), 200, 200, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(get_gen.current), 200, 300, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Population: " + str(curr_pop), 200, 400, font_size=40, color=(255, 0, 0))
+
+    pygame.display.update()
+
+
+
+def get_gen() -> int:
+    """Really strange way of maintaining a global state for the current generation.
+
+    Set using get_gen.current = X. Anytime retrieving will increment generation, so
+    likely will need to use offset to get the right value.
+
+    See this for details: https://stackoverflow.com/a/279597
+
+    Returns:
+        int: Current generation
+    """
+    if not hasattr(get_gen, "current"):
+        get_gen.current = 0  # it doesn't exist yet, so initialize it
+    get_gen.current += 1
+    return get_gen.current
 
 
 if __name__ == "__main__":
