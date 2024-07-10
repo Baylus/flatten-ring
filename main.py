@@ -137,7 +137,7 @@ def main():
         for i in range(1, 10):
             cd = f"run_{i}"
             # Check that the run directory doesn't exist, or its empty.
-            if cd not in runs or not os.listdir(curr_fitness_checkpoints + cd):
+            if cd not in runs or not os.listdir(curr_fitness_checkpoints + f"/{cd}"):
                 if not RESTORE_CHECKPOINTS or args.reset:
                     # We are not restoring from checkpoints, so we need to make a new directory, which would be the i'th run dir
                     run_val = i
