@@ -125,3 +125,5 @@ However, this also means that it may be critical that Margit doesn't know the Ta
 - Consider adding in functionality to save off current checkpoints incase of a keyboard interrupt, that way we don't lose 9 generations of training just because I happened to need to make a change or stop training for some reason.
 - - This will require more support for picking up where we left off, by manually running training until we reach the next traditional checkpoint increment, then implementing the automated checkpointer, and running normally.
 e.g. Checkpoint interval = 10, last margit checkpoint was 36. We would need to run 4 generations of training, checkpoint there, then we could add the automated checkpointer to the population and continue running.
+### Consider
+- - It might be really interesting to be able to live display the fitness values acquired by both actors. This would make it really easy to identify which actions the trainers took that cost them a lot more points than others during replays or in the rare cases of live visual training.
