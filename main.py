@@ -111,11 +111,9 @@ margit_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduc
 
 
 curr_gen = 0
-curr_trainer: str = None
 
 def main():
     global curr_gen
-    global curr_trainer
     clean_gamestates()
 
     # Create the population
@@ -261,9 +259,6 @@ def simulate_games(tarn_pop, marg_pop) -> None:
         with terminating_executor(max_workers=MAX_WORKERS) as executor:
             for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
                 curr_pop += 1
-                # TODO: Pull out these nets back into a central function. We will be submitting the networks and retrieving
-                # results, congregating them, and then feeding their fitnesses via a "fitness" function to the population.run
-                # calls.
                 net_tarnished = neat.nn.FeedForwardNetwork.create(genome_tarnished, tarn_pop.config)
                 net_margit = neat.nn.FeedForwardNetwork.create(genome_margit, marg_pop.config)
                 
@@ -713,7 +708,7 @@ def draw_replay(game_data):
     tarnished.draw(WIN)
     margit.draw(WIN)
 
-    trainer = curr_trainer or game_data["trainer"]
+    trainer = game_data["trainer"]
     X = 160
     curr_y_offset = 200
     if trainer == TARNISHED_NAME:
@@ -784,8 +779,6 @@ def replay_game(game_data: dict):
 
 
 def replay_file(replay_file: str):
-    global curr_trainer
-    curr_trainer = None # We are replaying without intention, so dont highlight anyone
     # Get our game data
     with open(replay_file) as json_file:
         game_data = json.load(json_file)
@@ -807,13 +800,11 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = DEFAULT_NUM_BEST_GENS)
                        Very specific we need the same name as is written out to file names
     """
     global curr_gen
-    global curr_trainer
     global gen_average
     global gen_best
 
     # Setup
     curr_gen = gen
-    curr_trainer = trainer
 
     gen_dir = f"{GAMESTATES_PATH}/gen_{gen}/"
     runs = os.listdir(gen_dir)
