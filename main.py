@@ -196,7 +196,7 @@ def main():
 
     try:
         get_gen.current = start_gen_nums[0]
-        for gen in range(start_gen_nums[0], GENERATIONS):
+        for _ in range(start_gen_nums[0], GENERATIONS):
             # Run NEAT for player and enemy separately
             simulate_games(population_tarnished, population_margit)
             ########
