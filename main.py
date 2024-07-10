@@ -186,9 +186,9 @@ def main():
             checkpointer_margit = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
         
         # TODO: Add this to allow us to record to a output file too
+        # https://stackoverflow.com/a/14906787
         # TODO: Test if this is adding two different checkpoint reporters, in 
         #       the case that the checkpoint reporters are included in the restore checkpoints
-        # https://stackoverflow.com/a/14906787
         population_tarnished.add_reporter(neat.StdOutReporter(True))
         population_tarnished.add_reporter(neat.StatisticsReporter())
         population_tarnished.add_reporter(checkpointer_tarnished)
