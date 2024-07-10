@@ -43,7 +43,7 @@ RESTORE_CHECKPOINTS = True
 
 ### Parallel stuff
 PARALLEL_OVERRIDE = False
-MAX_WORKERS = 2
+MAX_WORKERS = 5
 ###
 
 
