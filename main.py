@@ -110,12 +110,10 @@ margit_neat_config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduc
                             MARGIT_NEAT_PATH)
 
 
-curr_pop = 0
 curr_gen = 0
 curr_trainer: str = None
 
 def main():
-    global curr_pop
     global curr_gen
     global curr_trainer
     clean_gamestates()
@@ -200,7 +198,6 @@ def main():
         get_gen.current = start_gen_nums[0]
         for gen in range(start_gen_nums[0], GENERATIONS):
             # Run NEAT for player and enemy separately
-            # TODO: Pull out a lot of this, will need to completely overhaul this.
             simulate_games(population_tarnished, population_margit)
             ########
             print("########### Training Tarnished Now ###########")
@@ -212,15 +209,12 @@ def main():
             f.write(str(e))
         raise
 
-def simulate_games(tarn_pop, marg_pop) -> tuple[dict[int, int]]:
+def simulate_games(tarn_pop, marg_pop) -> None:
     """Simulate all populations and assigns fitness back to population genomes
 
     Args:
-        tarn_pop (neat.Population): The population object for Tarnished. Will need to convert to iterable list.
-        marg_pop (neat.Population): The population object for Margit. Will need to convert to iterable list.
-
-    Returns:
-        tarn_fitness, marg_fitness: Maps from genome_id -> fitness value of the game
+        tarn_pop (neat.Population): The population object for Tarnished.
+        marg_pop (neat.Population): The population object for Margit.
     """
     genomes_tarnished = list(iteritems(tarn_pop.population))
     genomes_margit = list(iteritems(marg_pop.population))
@@ -295,7 +289,7 @@ def simulate_games(tarn_pop, marg_pop) -> tuple[dict[int, int]]:
             
             # Run the simulation
             curr_pop += 1 # Make sure population matches
-            tfit, mfit = play_game(player_net, enemy_net, curr_pop, gen, curr_trainer)
+            tfit, mfit = play_game(player_net, enemy_net, curr_pop, gen)
             
             # Assign fitness
             genome_tarnished.fitness = tfit
@@ -314,7 +308,10 @@ def simulate_games(tarn_pop, marg_pop) -> tuple[dict[int, int]]:
 
 
 def eval_genomes(genomes, config):
-    """No-op function. Could add logging stuff here if I felt like it.
+    """No-op function for the Population.run methods.
+    
+    Will add logging here if I am ever running into problems, but it doesn't have
+    access to population at this point.
 
     Args:
         genomes (_type_): _description_
@@ -395,7 +392,7 @@ def play_game(tarnished_net, margit_net, pop, gen) -> tuple[int]:
             margit.update()
 
             if not args.hide:
-                draw(tarnished, margit)
+                draw(tarnished, margit, pop)
             
             game_result["game_states"].append(curr_state)
             updates += 1
@@ -735,9 +732,9 @@ def draw_replay(game_data):
     curr_y_offset += 25
 
 
-    draw_text(WIN, "Generation: " + str(get_gen.current or game_data["generation"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(game_data["generation"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
     curr_y_offset += 50
-    draw_text(WIN, "Population: " + str(curr_pop or game_data["population"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
+    draw_text(WIN, "Population: " + str(game_data["population"]), X, curr_y_offset, font_size=30, color=(255, 0, 0))
     curr_y_offset += 100
 
     draw_text(WIN, "Fitness Details: ", X, curr_y_offset, font_size=40, color=(255, 0, 0))
@@ -810,7 +807,6 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = DEFAULT_NUM_BEST_GENS)
                        Very specific we need the same name as is written out to file names
     """
     global curr_gen
-    global curr_pop
     global curr_trainer
     global gen_average
     global gen_best
@@ -853,7 +849,6 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = DEFAULT_NUM_BEST_GENS)
         fit, file = runs_processed.pop()
         with open(f"{gen_dir}{file}") as json_file:
             game_data = json.load(json_file)
-        curr_pop = game_data["population"]
 
         print(f"Replaying {file}")
         # Now replay the game
@@ -927,7 +922,7 @@ def draw_text(surface, text, x, y, font_size=20, color=(255, 255, 255)):
     text_surface = font.render(text, True, color)
     surface.blit(text_surface, (x, y))
 
-def draw(tarnished: Tarnished, margit: Margit):
+def draw(tarnished: Tarnished, margit: Margit, pop: int):
     WIN.blit(BG, (0,0))
 
     if tarnished:
@@ -936,9 +931,8 @@ def draw(tarnished: Tarnished, margit: Margit):
         margit.draw(WIN)
 
     # Draw the name below the health bar
-    draw_text(WIN, "Trainer: " + str(curr_trainer), 200, 200, font_size=40, color=(255, 0, 0))
-    draw_text(WIN, "Generation: " + str(get_gen.current), 200, 300, font_size=40, color=(255, 0, 0))
-    draw_text(WIN, "Population: " + str(curr_pop), 200, 400, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Generation: " + str(get_gen.current), 200, 200, font_size=40, color=(255, 0, 0))
+    draw_text(WIN, "Population: " + str(pop), 200, 300, font_size=40, color=(255, 0, 0))
 
     pygame.display.update()
 
