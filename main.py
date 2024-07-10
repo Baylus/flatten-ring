@@ -186,6 +186,8 @@ def main():
             checkpointer_margit = OneIndexedCheckpointer(generation_interval=CHECKPOINT_INTERVAL, filename_prefix=f'{this_runs_checkpoints}/{MARGIT_CHECKPOINT_PREFIX}')
         
         # TODO: Add this to allow us to record to a output file too
+        # TODO: Test if this is adding two different checkpoint reporters, in 
+        #       the case that the checkpoint reporters are included in the restore checkpoints
         # https://stackoverflow.com/a/14906787
         population_tarnished.add_reporter(neat.StdOutReporter(True))
         population_tarnished.add_reporter(neat.StatisticsReporter())
@@ -281,6 +283,9 @@ def simulate_games(tarn_pop, marg_pop) -> tuple[dict[int, int]]:
                 tfit, mfit = future.result()
                 genome_tarnished.fitness = tfit
                 genome_margit.fitness = mfit
+                
+                # It is inconceivable with the number of fitness modifications that tarnished has a fitness 0...
+                assert genome_tarnished.fitness, "We failed to assign tarnished's fitness, or we need to buy a lottery ticket"
     
     else:               # We are not executing in parallel.
         for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
@@ -302,6 +307,11 @@ def simulate_games(tarn_pop, marg_pop) -> tuple[dict[int, int]]:
 
             assert genome_tarnished.fitness is not None
             assert genome_margit.fitness is not None
+
+            # It is inconceivable with the number of fitness modifications that tarnished has a fitness 0...
+            assert genome_tarnished.fitness, "We failed to assign tarnished's fitness, or we need to buy a lottery ticket"
+    return ### END simulate_games ###
+
 
 def eval_genomes(genomes, config):
     """No-op function. Could add logging stuff here if I felt like it.
