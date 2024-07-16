@@ -255,7 +255,7 @@ def simulate_games(tarn_pop, marg_pop) -> None:
         
         # We need to execute the training in parallel
         # Create a process pool for parallel execution
-        futures = []
+        futures = {}
         with terminating_executor(max_workers=MAX_WORKERS) as executor:
             for (genome_id_tarnished, genome_tarnished), (genome_id_margit, genome_margit) in zip(genomes_tarnished, genomes_margit):
                 curr_pop += 1
@@ -265,11 +265,17 @@ def simulate_games(tarn_pop, marg_pop) -> None:
                 # Schedule the game simulation to run in parallel
                 # We need to give it the pop and gen num, as the parallel processes are going to mess with both
                 future = executor.submit(play_game, net_tarnished, net_margit, curr_pop, gen)
-                futures.append((future, genome_tarnished, genome_margit))
+                futures[future] = (genome_tarnished, genome_margit)
 
             # Collect results as they complete
-            for future, genome_tarnished, genome_margit in futures:
+            curr_pop = 0
+            for future in concurrent.futures.as_completed(futures):
                 tfit, mfit = future.result()
+                curr_pop += 1
+                # TODO: See if making this process do the writeback for all the results is faster than
+                # making each of the threads do it themselves.
+                print(f"Collecting result {curr_pop}")
+                genome_tarnished, genome_margit = futures[future]
                 genome_tarnished.fitness = tfit
                 genome_margit.fitness = mfit
                 
@@ -316,7 +322,6 @@ def eval_genomes(genomes, config):
 
 
 def play_game(tarnished_net, margit_net, pop, gen) -> tuple[int]:
-    # Initial housekeeping
     """Game states:
     Game states will be comprised of several things:
         - Current states of all objects
