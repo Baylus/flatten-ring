@@ -106,7 +106,6 @@ class Weapon:
         Args:
             state (dict): State we want to mimic
         """
-        # TODO: This
         self.swinging = True
         self.x = state["x"]
         self.y = state["y"]

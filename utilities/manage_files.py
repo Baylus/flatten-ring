@@ -6,7 +6,7 @@ import shutil
 from config.settings import GAMESTATES_PATH
 
 
-def clean_gamestates(args):
+def clean_gamestates():
     print("Cleaning up old data")
     # DELETE GAME STATES #
     print("Cleaning up old game states")

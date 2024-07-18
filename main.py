@@ -163,8 +163,6 @@ def main():
         
         # TODO: Add this to allow us to record to a output file too
         # https://stackoverflow.com/a/14906787
-        # TODO: Test if this is adding two different checkpoint reporters, in 
-        #       the case that the checkpoint reporters are included in the restore checkpoints
         population_tarnished.add_reporter(neat.StdOutReporter(True))
         population_tarnished.add_reporter(neat.StatisticsReporter())
         population_tarnished.add_reporter(checkpointer_tarnished)
@@ -250,13 +248,16 @@ def simulate_games(tarn_pop, marg_pop) -> None:
             # Collect results as they complete
             curr_pop = 0
             for future in concurrent.futures.as_completed(futures):
-                tfit, mfit = future.result()
+                game_result = future.result()
                 curr_pop += 1
                 # TODO: See if making this process do the writeback for all the results is faster than
                 # making each of the threads do it themselves.
                 genome_tarnished, genome_margit = futures[future]
-                genome_tarnished.fitness = tfit
-                genome_margit.fitness = mfit
+                genome_tarnished.fitness = game_result[f"{TARNISHED_NAME}_fitness"]
+                genome_margit.fitness = game_result[f"{MARGIT_NAME}_fitness"]
+
+                # Now writeback the gamestates here
+                write_gamestate_to_file(game_result)
                 
                 # It is inconceivable with the number of fitness modifications that tarnished has a fitness 0...
                 assert genome_tarnished.fitness, "We failed to assign tarnished's fitness, or we need to buy a lottery ticket"
@@ -316,6 +317,8 @@ def play_game(tarnished_net, margit_net, pop, gen) -> tuple[int]:
     tarnished = Tarnished()
     margit = Margit()
 
+    # TODO: Turn this into a class so its easier to refactor stuff to use different names or know what needs
+    # what elements of the game results. Really hard to track right now.
     game_result = { # For recording all other elements and storing final output of logging function
         "winner": "draw", # Default incase something fails
         f"{TARNISHED_NAME}_fitness": 0,
@@ -402,10 +405,8 @@ def play_game(tarnished_net, margit_net, pop, gen) -> tuple[int]:
         score, details = get_margit_fitness(game_result)
         game_result[f"{MARGIT_NAME}_fitness"] = int(score)
         game_result[f"{MARGIT_NAME}_fitness_details"] = details
-
-        write_gamestate_to_file(game_result)
     
-    return game_result[f"{TARNISHED_NAME}_fitness"], game_result[f"{MARGIT_NAME}_fitness"]
+    return game_result
 
 ### Actions ###
 
