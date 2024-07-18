@@ -1,6 +1,6 @@
 import pygame
 
-from utilities import calculate_new_xy, draw_health_bar
+from utilities.pygame import calculate_new_xy, draw_health_bar
 from config.settings import *
 
 from .base import Entity
