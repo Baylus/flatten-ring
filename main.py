@@ -20,15 +20,15 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 
 
-from fitness import get_tarnished_fitness, get_margit_fitness
 
+from config.settings import *
 from entities.tarnished import Tarnished
 from entities.margit import Margit
 from entities.base import Entities, trainer_str, TARNISHED_NAME, MARGIT_NAME
 from entities.actions import Actions
 from entities.exceptions import *
-
-from config.settings import *
+from fitness import get_tarnished_fitness, get_margit_fitness
+from utilities.manage_files import clean_gamestates, write_gamestate_to_file, read_gamestate_from_file
 
 pygame.font.init()
 
@@ -67,29 +67,8 @@ args.parallel = PARALLEL_OVERRIDE or args.parallel
 # If we are running parallel, we cannot have multiple windows
 args.hide = HIDE_OVERRIDE or args.hide or args.parallel
 
+# Are we replaying previous games?
 replays = True if any([args.replay, args.best, args.gens != None]) else False
-
-########## STARTUP CLEANUP
-def clean_gamestates():
-    if not replays and args.clean and not SAVE_GAMESTATES:
-        print("Cleaning up old data")
-        # DELETE GAME STATES #
-        print("Cleaning up old game states")
-        folder = GAMESTATES_PATH
-        for filename in os.listdir(folder):
-            file_path = os.path.join(folder, filename)
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                print('Failed to delete %s. Reason: %s' % (file_path, e))
-
-        print("remove debug.txt")
-        # Delete debug file to ensure we arent looking at old exceptions
-        pathlib.Path.unlink("debug.txt", missing_ok=True)
-##################
 
 # Initialize Pygame
 pygame.init()
@@ -114,7 +93,8 @@ curr_gen = 0
 
 def main():
     global curr_gen
-    clean_gamestates()
+    if not replays and args.clean and not SAVE_GAMESTATES:
+        clean_gamestates()
 
     # Create the population
     population_tarnished = neat.Population(tarnished_neat_config)
@@ -183,8 +163,6 @@ def main():
         
         # TODO: Add this to allow us to record to a output file too
         # https://stackoverflow.com/a/14906787
-        # TODO: Test if this is adding two different checkpoint reporters, in 
-        #       the case that the checkpoint reporters are included in the restore checkpoints
         population_tarnished.add_reporter(neat.StdOutReporter(True))
         population_tarnished.add_reporter(neat.StatisticsReporter())
         population_tarnished.add_reporter(checkpointer_tarnished)
@@ -270,14 +248,16 @@ def simulate_games(tarn_pop, marg_pop) -> None:
             # Collect results as they complete
             curr_pop = 0
             for future in concurrent.futures.as_completed(futures):
-                tfit, mfit = future.result()
+                game_result = future.result()
                 curr_pop += 1
                 # TODO: See if making this process do the writeback for all the results is faster than
                 # making each of the threads do it themselves.
-                print(f"Collecting result {curr_pop}")
                 genome_tarnished, genome_margit = futures[future]
-                genome_tarnished.fitness = tfit
-                genome_margit.fitness = mfit
+                genome_tarnished.fitness = game_result[f"{TARNISHED_NAME}_fitness"]
+                genome_margit.fitness = game_result[f"{MARGIT_NAME}_fitness"]
+
+                # Now writeback the gamestates here
+                write_gamestate_to_file(game_result)
                 
                 # It is inconceivable with the number of fitness modifications that tarnished has a fitness 0...
                 assert genome_tarnished.fitness, "We failed to assign tarnished's fitness, or we need to buy a lottery ticket"
@@ -337,6 +317,8 @@ def play_game(tarnished_net, margit_net, pop, gen) -> tuple[int]:
     tarnished = Tarnished()
     margit = Margit()
 
+    # TODO: Turn this into a class so its easier to refactor stuff to use different names or know what needs
+    # what elements of the game results. Really hard to track right now.
     game_result = { # For recording all other elements and storing final output of logging function
         "winner": "draw", # Default incase something fails
         f"{TARNISHED_NAME}_fitness": 0,
@@ -423,14 +405,8 @@ def play_game(tarnished_net, margit_net, pop, gen) -> tuple[int]:
         score, details = get_margit_fitness(game_result)
         game_result[f"{MARGIT_NAME}_fitness"] = int(score)
         game_result[f"{MARGIT_NAME}_fitness_details"] = details
-
-        file_name = str(pop)
-        file_name += ".json"
-        file_name = file_name.replace(":", "_")
-        with open(f"{GAMESTATES_PATH}/gen_{gen}/{file_name}", 'w') as f:
-            json.dump(game_result, f, indent=4)
     
-    return game_result[f"{TARNISHED_NAME}_fitness"], game_result[f"{MARGIT_NAME}_fitness"]
+    return game_result
 
 ### Actions ###
 
@@ -785,8 +761,7 @@ def replay_game(game_data: dict):
 
 def replay_file(replay_file: str):
     # Get our game data
-    with open(replay_file) as json_file:
-        game_data = json.load(json_file)
+    game_data = read_gamestate_from_file(replay_file)
     
     replay_game(game_data)
 
@@ -821,8 +796,8 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = DEFAULT_NUM_BEST_GENS)
     runs_processed: list[tuple[int, str]] = []
     for run_file in gen_runs:
         # Get run data
-        with open(f"{gen_dir}{run_file}") as json_file:
-            game_data = json.load(json_file)
+        fname = f"{gen_dir}{run_file}"
+        game_data = read_gamestate_from_file(fname)
         
         # Process data and keep a record of it for retrieval
         this_fit = int(game_data[f"{trainer}_fitness"])
@@ -843,8 +818,8 @@ def replay_best_in_gen(gen: int, trainer: str, num_best = DEFAULT_NUM_BEST_GENS)
     for _ in range(len(runs_processed[-num_best:])):
         # Get the next run to replay
         fit, file = runs_processed.pop()
-        with open(f"{gen_dir}{file}") as json_file:
-            game_data = json.load(json_file)
+        fname = f"{gen_dir}{file}"
+        game_data = read_gamestate_from_file(fname)
 
         print(f"Replaying {file}")
         # Now replay the game

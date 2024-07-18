@@ -1,7 +1,7 @@
 import pygame
 
 from config.settings import TPS, WIDTH, HEIGHT, MARGIT_IMAGE, HEALTH_BAR_HEIGHTS, HEALTH_BAR_WIDTHS, DEFAULT_HEALTH_BAR_PADDING
-from utilities import calculate_new_xy, draw_health_bar
+from utilities.pygame import calculate_new_xy, draw_health_bar
 
 from .base import Entity
 from .actions import Actions

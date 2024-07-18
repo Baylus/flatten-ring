@@ -1,7 +1,7 @@
 import pygame
 import math
 
-from utilities import calculate_new_xy
+from utilities.pygame import calculate_new_xy
 from ..exceptions import CharacterDied, TarnishedDied
 
 from .weapon import Weapon
