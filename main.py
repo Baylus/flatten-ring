@@ -20,15 +20,15 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 
 
-from fitness import get_tarnished_fitness, get_margit_fitness
 
+from config.settings import *
 from entities.tarnished import Tarnished
 from entities.margit import Margit
 from entities.base import Entities, trainer_str, TARNISHED_NAME, MARGIT_NAME
 from entities.actions import Actions
 from entities.exceptions import *
+from fitness import get_tarnished_fitness, get_margit_fitness
 
-from config.settings import *
 
 pygame.font.init()
 
