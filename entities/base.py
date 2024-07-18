@@ -1,7 +1,7 @@
 from enum import Enum
 import pygame
 
-from utilities import calculate_new_xy
+from utilities.pygame import calculate_new_xy
 from config.settings import *
 
 from .exceptions import CharacterDied
